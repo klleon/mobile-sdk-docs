@@ -110,7 +110,7 @@ const config: Config = {
                 box-shadow: none;
                 vertical-align: middle;
               ">
-                Latest
+                Beta
               </span>
             </span>
         `,
