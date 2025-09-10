@@ -5,9 +5,9 @@ title: android-examples
 sidebar_label: android examples
 ---
 
-# 안드로이드 사용 예제
+# Android Usage Examples
 
-## MainActivity 구현
+## MainActivity Implementation
 
 ```kotlin
 @RequiresApi(Build.VERSION_CODES.S)
@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 시작 시 에셋을 캐시 디렉토리로 복사
+        // Copy assets to cache directory at startup
         copyAssetToCache("loop_sample.mp4")
         copyAssetToCache("loop_sample.npz")
     }
@@ -61,17 +61,17 @@ class MainActivity : ComponentActivity() {
                 val outputStream = FileOutputStream(cacheFile)
                 inputStream.copyTo(outputStream)
                 outputStream.close()
-                Log.d("MainActivity", "$fileName을 캐시로 복사함: ${cacheFile.absolutePath}")
+                Log.d("MainActivity", "Copied $fileName to cache: ${cacheFile.absolutePath}")
             }
             inputStream.close()
         } catch (e: IOException) {
-            Log.e("MainActivity", "에셋 $fileName 복사 중 오류", e)
+            Log.e("MainActivity", "Error copying asset $fileName", e)
         }
     }
 }
 ```
 
-## Compose UI 통합
+## Compose UI Integration
 
 ### WorkerScreen Composable
 
@@ -86,11 +86,11 @@ fun WorkerScreen(
     var workerView by remember { mutableStateOf<KlleonSdkView?>(null) }
     var messageData by remember { mutableStateOf("") }
 
-    // 에셋 파일 경로
+    // Asset file paths
     val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
     val fpPath = remember { File(context.cacheDir, "loop_sample.npz").absolutePath }
 
-    // SDK 상태 수집
+    // Collect SDK state
     val accumulatedMessages by viewModel.accumulatedMessages.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -102,7 +102,7 @@ fun WorkerScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDK 상태 표시
+        // Display SDK state
         Card(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -122,14 +122,14 @@ fun WorkerScreen(
             }
         }
 
-        // 하단 콘텐츠
+        // Bottom content
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // SDK 뷰
+            // SDK View
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -139,22 +139,22 @@ fun WorkerScreen(
                     factory = { context ->
                         KlleonSdkView(context).also { view ->
                             workerView = view
-                            Log.d("WorkerScreen", "KlleonSdkView 생성됨: $view")
+                            Log.d("WorkerScreen", "KlleonSdkView created: $view")
                         }
                     },
                     modifier = Modifier.fillMaxSize()
                 )
             }
 
-            // 메시지 입력
+            // Message input
             OutlinedTextField(
                 value = messageData,
                 onValueChange = { messageData = it },
-                label = { Text("메시지") },
+                label = { Text("Message") },
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 제어 버튼
+            // Control buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -175,14 +175,14 @@ fun WorkerScreen(
                     modifier = Modifier.weight(1f),
                     enabled = workerView != null
                 ) {
-                    Text("재생")
+                    Text("Play")
                 }
 
                 Button(
                     onClick = { klleonOndeviceSdk.finish() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("종료")
+                    Text("Stop")
                 }
             }
 
@@ -195,12 +195,12 @@ fun WorkerScreen(
                         try {
                             klleonOndeviceSdk.sendMessage(messageData)
                         } catch (e: Exception) {
-                            Log.e("WorkerScreen", "메시지 전송 오류", e)
+                            Log.e("WorkerScreen", "Message send error", e)
                         }
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("메시지 전송")
+                    Text("Send Message")
                 }
 
                 Button(
@@ -208,12 +208,12 @@ fun WorkerScreen(
                         try {
                             klleonOndeviceSdk.sendMessageEcho(messageData)
                         } catch (e: Exception) {
-                            Log.e("WorkerScreen", "에코 전송 오류", e)
+                            Log.e("WorkerScreen", "Echo send error", e)
                         }
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("에코")
+                    Text("Echo")
                 }
             }
         }
@@ -221,7 +221,7 @@ fun WorkerScreen(
 }
 ```
 
-## ViewModel 구현
+## ViewModel Implementation
 
 ### WorkerViewModel
 
@@ -243,7 +243,7 @@ class WorkerViewModel : ViewModel() {
                         state.toString()
                     }
                     
-                    // 누적된 메시지에 새 메시지 추가
+                    // Add new message to accumulated messages
                     if (messageToAdd.isNotBlank()) {
                         val currentMessages = _accumulatedMessages.value
                         val newMessages = if (currentMessages.isEmpty()) {
@@ -264,9 +264,9 @@ class WorkerViewModel : ViewModel() {
 }
 ```
 
-## 최소 통합 예제
+## Minimal Integration Example
 
-간단한 구현을 위해:
+For simple implementation:
 
 ```kotlin
 @RequiresApi(Build.VERSION_CODES.S)
@@ -293,7 +293,7 @@ fun SimpleSDKIntegration() {
                 .weight(1f)
         )
         
-        // 재생 버튼
+        // Play button
         Button(
             onClick = {
                 sdkView?.let { view ->
@@ -312,13 +312,13 @@ fun SimpleSDKIntegration() {
             modifier = Modifier.fillMaxWidth(),
             enabled = sdkView != null
         ) {
-            Text("SDK 시작")
+            Text("Start SDK")
         }
     }
 }
 ```
 
-## 상태 관찰 패턴
+## State Observation Pattern
 
 ```kotlin
 @Composable
@@ -329,9 +329,9 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
         klleonOndeviceSdk.sdkState.collect { state ->
             currentState = try {
                 val json = JSONObject(state)
-                "상태: ${json.getString("message")}"
+                "State: ${json.getString("message")}"
             } catch (e: Exception) {
-                "원시 상태: $state"
+                "Raw state: $state"
             }
         }
     }
@@ -343,7 +343,7 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
 }
 ```
 
-## 오류 처리 패턴
+## Error Handling Pattern
 
 ```kotlin
 class SDKManager {
@@ -357,22 +357,22 @@ class SDKManager {
         sdkKey: String
     ): Boolean {
         return try {
-            // 입력 검증
+            // Input validation
             if (!File(videoPath).exists()) {
-                Log.e("SDKManager", "비디오 파일을 찾을 수 없음: $videoPath")
+                Log.e("SDKManager", "Video file not found: $videoPath")
                 return false
             }
             
             if (!File(facialPath).exists()) {
-                Log.e("SDKManager", "얼굴 파일을 찾을 수 없음: $facialPath")
+                Log.e("SDKManager", "Facial file not found: $facialPath")
                 return false
             }
             
             klleonOndeviceSdk.play(activity, view, videoPath, facialPath, sdkKey)
-            Log.d("SDKManager", "SDK 재생이 성공적으로 시작됨")
+            Log.d("SDKManager", "SDK playback started successfully")
             true
         } catch (e: Exception) {
-            Log.e("SDKManager", "SDK 재생 시작 실패", e)
+            Log.e("SDKManager", "Failed to start SDK playback", e)
             false
         }
     }
@@ -380,15 +380,15 @@ class SDKManager {
     fun safeSendMessage(message: String): Boolean {
         return try {
             if (message.isBlank()) {
-                Log.w("SDKManager", "빈 메시지 전송 시도")
+                Log.w("SDKManager", "Attempted to send empty message")
                 return false
             }
             
             klleonOndeviceSdk.sendMessage(message)
-            Log.d("SDKManager", "메시지 전송됨: $message")
+            Log.d("SDKManager", "Message sent: $message")
             true
         } catch (e: Exception) {
-            Log.e("SDKManager", "메시지 전송 실패", e)
+            Log.e("SDKManager", "Failed to send message", e)
             false
         }
     }

@@ -2,23 +2,23 @@
 id: get-started
 sidebar_position: 3
 title: get-started
-sidebar_label: 시작하기
+sidebar_label: 始め方
 ---
 
-# 시작하기
+# 始め方
 
-## 사전 요구사항
+## 前提条件
 
-Klleon Chat SDK를 사용하기 전에 다음 준비사항이 필요합니다:
+Klleon Chat SDKを使用する前に、以下の準備が必要です：
 
-1.  **Kleon Studio 계정**: SDK 기능을 사용하려면 [Kleon Studio](https://www.studio.klleon.io/) 계정이 필요합니다. 계정이 없다면 먼저 가입해 주세요.
-2.  **SDK 키 발급**: 도메인 등록 후, 해당 도메인에서 사용할 고유한 `sdk_key`가 발급됩니다. 이 키는 SDK 초기화에 필요합니다.
+1.  **Kleon Studioアカウント**: SDK機能を使用するには[Kleon Studio](https://www.studio.klleon.io/)アカウントが必要です。アカウントがない場合は、まず登録してください。
+2.  **SDKキー発行**: ドメイン登録後、そのドメインで使用する固有の`sdk_key`が発行されます。このキーはSDK初期化に必要です。
 
-## 권한
+## パーミッション
 
 ### AndroidManifest.xml
 
-`AndroidManifest.xml`에 필요한 권한을 추가하세요:
+`AndroidManifest.xml`に必要なパーミッションを追加してください：
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -26,7 +26,7 @@ Klleon Chat SDK를 사용하기 전에 다음 준비사항이 필요합니다:
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
-### 코드에서 권한 처리
+### コードでのパーミッション処理
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -60,19 +60,19 @@ class MainActivity : ComponentActivity() {
         val deniedPermissions = permissions.filter { !it.value }.keys
 
         if (deniedPermissions.isEmpty()) {
-            Log.d("MainActivity", "모든 권한이 허용됨")
+            Log.d("MainActivity", "すべてのパーミッションが許可されました")
             initializeApp()
         } else {
-            Log.w("MainActivity", "권한이 거부됨: $deniedPermissions")
-            // 거부된 권한 처리
+            Log.w("MainActivity", "パーミッションが拒否されました: $deniedPermissions")
+            // 拒否されたパーミッションの処理
         }
     }
 }
 ```
 
-## SDK 초기화
+## SDK初期化
 
-### 기본 설정
+### 基本設定
 
 ```kotlin
 import io.klleon.ondevice.KlleonOndeviceSdk
@@ -118,20 +118,20 @@ class MainActivity : ComponentActivity() {
                 val outputStream = FileOutputStream(cacheFile)
                 inputStream.copyTo(outputStream)
                 outputStream.close()
-                Log.d("MainActivity", "$fileName을 캐시로 복사함: ${cacheFile.absolutePath}")
+                Log.d("MainActivity", "$fileNameをキャッシュにコピーしました: ${cacheFile.absolutePath}")
             }
             inputStream.close()
         } catch (e: IOException) {
-            Log.e("MainActivity", "에셋 $fileName 복사 중 오류", e)
+            Log.e("MainActivity", "アセット$fileNameコピー中にエラーが発生しました", e)
         }
     }
 }
 ```
 
-## 다음 단계
+## 次のステップ
 
-설정 완료 후:
+設定完了後：
 
-1. 사용 가능한 메서드는 [API 참조](api-reference)를 확인하세요
-2. 최적의 통합을 위해 [가이드](../guides/guides)를 따르세요
-3. 구현 패턴은 [사용 예제](../examples/examples)를 확인하세요
+1. 使用可能なメソッドは[APIリファレンス](api-reference)を確認してください
+2. 最適な統合のために[ガイド](../guides/guides)に従ってください
+3. 実装パターンは[使用例](../examples/examples)を確認してください

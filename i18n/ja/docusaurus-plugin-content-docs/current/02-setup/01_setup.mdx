@@ -5,37 +5,37 @@ title: setup
 sidebar_label: setup
 ---
 
-# 개요
+# 概要
 
-Klleon Ondevice SDK는 비디오 처리, 실시간 메시징, WebSocket 통신과 함께 온디바이스 AI 기능을 제공하는 Android SDK입니다. 이 문서는 샘플 Android 애플리케이션의 구현을 기반으로 작성되었습니다.
+Klleon Ondevice SDKは、ビデオ処理、リアルタイムメッセージング、WebSocket通信とともにオンデバイスAI機能を提供するAndroid SDKです。このドキュメントはサンプルAndroidアプリケーションの実装を基に作成されています。
 
 
-# 설정
+# セットアップ
 
-## 1) 요구사항
-- **최소 SDK**: 26 (Android 8.0)
-- **타겟 SDK**: 36
-- **NDK 버전**: 28.2.13676358
+## 1) 要件
+- **最小SDK**: 26 (Android 8.0)
+- **ターゲットSDK**: 36
+- **NDKバージョン**: 28.2.13676358
 ---
 
-### 1-1. 리소스
-SDK에는 다음 에셋 파일이 필요합니다:
-- 비디오 파일 (`loop_sample.mp4`)
-- 얼굴 처리 파일 (`loop_sample.npz`)
+### 1-1. リソース
+SDKには以下のアセットファイルが必要です：
+- ビデオファイル (`loop_sample.mp4`)
+- 顔処理ファイル (`loop_sample.npz`)
 
-이 파일들은 `assets`(`src/main/assets`) 폴더에 배치되어야 하며 런타임에 캐시 디렉토리로 복사됩니다.
+これらのファイルは`assets`(`src/main/assets`)フォルダに配置され、ランタイムにキャッシュディレクトリにコピーされます。
 
-### 1-2. AAR 파일
+### 1-2. AARファイル
 
-- Kleon SDK AAR 파일을 `app/libs`에 복사합니다.
+- Kleon SDK AARファイルを`app/libs`にコピーします。
 
 
-## 2) Android 구성
+## 2) Android設定
 
 ```kotlin
 android {
     compileSdk = 36
-    ndkVersion = "27.0.12077973"
+    ndkVersion = "28.2.13676358"
     
     defaultConfig {
         minSdk = 26
@@ -50,25 +50,25 @@ android {
 }
 ```
 
-## 3) Gradle 구성
-- 최상위 build.gradle(.kts) 파일에 New Relic 플러그인을 선언합니다
+## 3) Gradle設定
+- トップレベルbuild.gradle(.kts)ファイルにNew Relicプラグインを宣言します
    ```
     plugins {
         // for binary Gradle plugins that need to be resolved
         id("com.newrelic.agent.android") version "7.6.1" apply false
     }
    ```
-- 앱 레벨 build.gradle(.kts)에서 플러그인을 명시적으로 적용합니다
+- アプリレベルbuild.gradle(.kts)でプラグインを明示的に適用します
    ```
       plugins {
         id("com.newrelic.agent.android")
       }
    ```
-- 앱 레벨 디렉토리에 newrelic.properties 파일을 추가합니다
-    - [다운로드](https://drive.google.com/file/d/1w7efkin2__s76fI6a86gsEDbejsb-Ojy/view?usp=sharing)
+- アプリレベルディレクトリにnewrelic.propertiesファイルを追加します
+    - [ダウンロード](https://drive.google.com/file/d/1w7efkin2__s76fI6a86gsEDbejsb-Ojy/view?usp=sharing)
 
 
-- 앱 레벨 build.gradle(.kts)에 다음 내용을 추가합니다
+- アプリレベルbuild.gradle(.kts)に以下の内容を追加します
     ```
       // Aar
       implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
@@ -105,5 +105,5 @@ android {
       implementation("com.newrelic.agent.android:android-agent:7.6.1")
     ```
 
-{/* ## 샘플 앱 다운로드
-- [다운로드] */}
+{/* ## サンプルアプリダウンロード
+- [ダウンロード] */}

@@ -2,15 +2,15 @@
 id: api-reference
 sidebar_position: 3
 title: api-reference
-sidebar_label: API 참조
+sidebar_label: API Reference
 ---
-# API 참조
+# API Reference
 
-## 핵심 컴포넌트
+## Core Components
 
 ### KlleonOndeviceSdk
 
-모든 기능을 제공하는 메인 SDK 클래스입니다.
+The main SDK class that provides all functionality.
 
 ```kotlin
 val klleonOndeviceSdk = KlleonOndeviceSdk()
@@ -18,7 +18,7 @@ val klleonOndeviceSdk = KlleonOndeviceSdk()
 
 ### KlleonSdkView
 
-SDK 콘텐츠를 렌더링하기 위한 커스텀 Android View입니다.
+A custom Android View for rendering SDK content.
 
 ```kotlin
 @Composable
@@ -36,11 +36,11 @@ fun SdkViewComponent() {
 }
 ```
 
-## SDK 메서드
+## SDK Methods
 
 ### play()
 
-얼굴 인식 처리와 함께 비디오 재생을 시작합니다.
+Starts video playback with facial recognition processing.
 
 ```kotlin
 klleonOndeviceSdk.play(
@@ -52,14 +52,14 @@ klleonOndeviceSdk.play(
 )
 ```
 
-**매개변수:**
-- `activity`: ComponentActivity - 현재 액티비티 컨텍스트
-- `view`: KlleonSdkView - 렌더링을 위한 뷰 인스턴스
-- `videoPath`: String - 비디오 파일의 절대 경로 (.mp4)
-- `facialPath`: String - 얼굴 처리 파일의 절대 경로 (.npz)
-- `sdkKey`: String - 고유 SDK 식별자
+**Parameters:**
+- `activity`: ComponentActivity - Current activity context
+- `view`: KlleonSdkView - View instance for rendering
+- `videoPath`: String - Absolute path to video file (.mp4)
+- `facialPath`: String - Absolute path to facial processing file (.npz)
+- `sdkKey`: String - Unique SDK identifier
 
-**예제:**
+**Example:**
 ```kotlin
 workerView?.let { view ->
     klleonOndeviceSdk.play(
@@ -74,13 +74,13 @@ workerView?.let { view ->
 
 ### finish()
 
-SDK를 중지하고 리소스를 정리합니다.
+Stops the SDK and cleans up resources.
 
 ```kotlin
 klleonOndeviceSdk.finish()
 ```
 
-**사용법:**
+**Usage:**
 ```kotlin
 Button(
     onClick = { klleonOndeviceSdk.finish() }
@@ -91,16 +91,16 @@ Button(
 
 ### sendMessage()
 
-SDK의 메시징 시스템을 통해 메시지를 전송합니다.
+Sends a message through the SDK's messaging system.
 
 ```kotlin
 klleonOndeviceSdk.sendMessage(message: String)
 ```
 
-**매개변수:**
-- `message`: String - 전송할 메시지 내용
+**Parameters:**
+- `message`: String - Message content to send
 
-**예제:**
+**Example:**
 ```kotlin
 try {
     klleonOndeviceSdk.sendMessage("Hello from app")
@@ -111,16 +111,16 @@ try {
 
 ### sendMessageEcho()
 
-SDK를 통해 에코 메시지를 전송합니다.
+Sends an echo message through the SDK.
 
 ```kotlin
 klleonOndeviceSdk.sendMessageEcho(message: String)
 ```
 
-**매개변수:**
-- `message`: String - 에코할 메시지 내용
+**Parameters:**
+- `message`: String - Message content to echo
 
-**예제:**
+**Example:**
 ```kotlin
 try {
     klleonOndeviceSdk.sendMessageEcho("Echo test")
@@ -129,17 +129,17 @@ try {
 }
 ```
 
-## 상태 관리
+## State Management
 
 ### sdkState
 
-SDK 상태 업데이트를 JSON 문자열로 방출하는 Flow입니다.
+A Flow that emits SDK state updates as JSON strings.
 
 ```kotlin
 klleonOndeviceSdk.sdkState: Flow<String>
 ```
 
-**사용법:**
+**Usage:**
 ```kotlin
 klleonOndeviceSdk.sdkState.collect { state ->
     val messageToAdd = try {
@@ -149,39 +149,33 @@ klleonOndeviceSdk.sdkState.collect { state ->
         state.toString()
     }
     
-    // 상태 업데이트 처리
+    // Handle state update
     updateUI(messageToAdd)
 }
 ```
 
-**상태 형식:**
-상태는 일반적으로 다음을 포함하는 JSON 문자열입니다:
+**State Format:**
+The state is typically a JSON string containing the following:
 ```json
 {
   "message":"","chat_type":"ACTIVATE_VOICE","time":"2025-09-03T05:42:08.394975295","id":"99dd3ab3-53c4-4418-bee4-b1fbaea272aa"
 }
 ```
 
-## 오류 처리
+## Error Handling
 
-모든 SDK 메서드는 try-catch 블록으로 감싸야 합니다:
+All SDK methods should be wrapped in try-catch blocks:
 
 ```kotlin
 try {
     klleonOndeviceSdk.sendMessage(message)
 } catch (e: Exception) {
-    Log.e("KlleonSDK", "작업 실패", e)
-    // 적절하게 오류 처리
+    Log.e("KlleonSDK", "Operation failed", e)
+    // Handle error appropriately
 }
 ```
 
-## 스레딩
-
-- SDK 메서드는 메인 스레드에서 안전하게 호출할 수 있습니다
-- 상태 관찰은 코루틴 스코프에서 수행해야 합니다
-- 상태 변경으로 인한 UI 업데이트는 메인 스레드로 디스패치되어야 합니다
-
-## 라이프사이클 관리
+## Lifecycle Management
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -189,7 +183,7 @@ class MainActivity : ComponentActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
-        klleonOndeviceSdk.finish() // 리소스 정리
+        klleonOndeviceSdk.finish() // Clean up resources
     }
 }
 ```

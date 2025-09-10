@@ -1,31 +1,31 @@
 ---
 id: guides
 sidebar_position: 3
-title: 개발 가이드
+title: Development Guide
 sidebar_label: guides
 ---
 
-### 1. 권한 관리
-- SDK 초기화 전에 항상 권한을 확인하세요
-- 사용자 친화적인 메시지로 권한 거부를 처리하세요
-- 필요한 권한에 대한 명확한 근거를 제공하세요
-- 다양한 Android 버전에서 권한 플로우를 테스트하세요
+### 1. Permission Management
+- Always check permissions before SDK initialization
+- Handle permission denials with user-friendly messages
+- Provide clear rationale for required permissions
+- Test permission flows across different Android versions
 
 ```kotlin
 private fun showPermissionRationale() {
     Toast.makeText(
         this,
-        "이 앱이 제대로 작동하려면 오디오 권한이 필요합니다.",
+        "Audio permission is required for this app to function properly.",
         Toast.LENGTH_LONG
     ).show()
 }
 ```
 
-### 2. 리소스 관리
-- SDK 사용 완료 시 `finish()`를 호출하여 리소스를 정리하세요
-- 더 나은 성능을 위해 에셋을 캐시 디렉토리로 복사하세요
-- 적절한 오류 처리로 파일 I/O 작업을 처리하세요
-- `onDestroy()`에서 리소스를 정리하세요
+### 2. Resource Management
+- Call `finish()` to clean up resources when SDK usage is complete
+- Copy assets to cache directory for better performance
+- Handle file I/O operations with proper error handling
+- Clean up resources in `onDestroy()`
 
 ```kotlin
 override fun onDestroy() {
@@ -34,132 +34,132 @@ override fun onDestroy() {
 }
 ```
 
-### 3. 상태 관찰
-- ViewModel을 사용하여 SDK 상태 변경을 관찰하세요
-- 코루틴 스코프에서 상태 업데이트를 수집하세요
-- try-catch 블록으로 JSON 응답을 안전하게 파싱하세요
-- UI 변경을 위해 메인 스레드에서 상태 업데이트를 처리하세요
+### 3. State Observation
+- Use ViewModel to observe SDK state changes
+- Collect state updates in coroutine scope
+- Safely parse JSON responses with try-catch blocks
+- Handle state updates on main thread for UI changes
 
-### 4. 오류 처리
-- SDK 메서드 호출을 try-catch 블록으로 감싸세요
-- 디버깅을 위해 오류를 적절히 로깅하세요
-- 실패한 작업에 대해 사용자 피드백을 제공하세요
-- SDK 메서드 호출 전에 입력을 검증하세요
+### 4. Error Handling
+- Wrap SDK method calls with try-catch blocks
+- Log errors appropriately for debugging
+- Provide user feedback for failed operations
+- Validate inputs before SDK method calls
 
 ```kotlin
 fun safeOperation() {
     try {
         klleonOndeviceSdk.sendMessage(message)
     } catch (e: Exception) {
-        Log.e("SDK", "작업 실패", e)
-        showUserError("작업이 실패했습니다. 다시 시도해 주세요.")
+        Log.e("SDK", "Operation failed", e)
+        showUserError("Operation failed. Please try again.")
     }
 }
 ```
 
-### 5. UI 통합
-- Compose에서 `AndroidView`를 사용하여 `KlleonSdkView`를 통합하세요
-- SDK 메서드 호출 전에 뷰가 제대로 초기화되었는지 확인하세요
-- 뷰 라이프사이클을 적절히 처리하세요
-- 다양한 화면 크기와 방향에서 UI를 테스트하세요
+### 5. UI Integration
+- Use `AndroidView` in Compose to integrate `KlleonSdkView`
+- Ensure the view is properly initialized before SDK method calls
+- Handle view lifecycle appropriately
+- Test UI across different screen sizes and orientations
 
-## 성능 최적화
+## Performance Optimization
 
 
-### 메모리 관리
+### Memory Management
 ```kotlin
-// Compose에서 remember를 사용하여 객체 재생성 방지
+// Use remember in Compose to prevent object recreation
 val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
 ```
 
-### 스레딩
+### Threading
 ```kotlin
-// 상태 관찰을 위해 적절한 코루틴 스코프 사용
+// Use appropriate coroutine scope for state observation
 viewModelScope.launch {
     klleonOndeviceSdk.sdkState.collect { state ->
-        // 상태 업데이트 처리
+        // Handle state updates
     }
 }
 ```
 
-## 문제 해결
+## Troubleshooting
 
-### 일반적인 문제
+### Common Issues
 
-#### 1. 권한 거부됨
-**문제**: `RECORD_AUDIO` 권한이 허용되지 않음
+#### 1. Permission Denied
+**Problem**: `RECORD_AUDIO` permission not granted
 
-**해결책**: 
-- `AndroidManifest.xml`에 권한이 선언되어 있는지 확인
-- 권한 처리 로직 확인
-- 다양한 Android 버전에서 테스트
+**Solution**: 
+- Check if permission is declared in `AndroidManifest.xml`
+- Verify permission handling logic
+- Test across different Android versions
 
-#### 2. SDK 상태가 업데이트되지 않음
-**문제**: 상태 관찰이 작동하지 않음
+#### 2. SDK State Not Updating
+**Problem**: State observation not working
 
-**해결책**:
-- ViewModel에서 상태 관찰이 제대로 설정되어 있는지 확인
-- 코루틴 스코프가 활성화되어 있는지 확인
-- 상태 수집이 시작되었는지 확인
+**Solution**:
+- Check if state observation is properly set up in ViewModel
+- Verify coroutine scope is active
+- Ensure state collection has started
 
-#### 3. 뷰가 준비되지 않음
-**문제**: `play()` 호출 전에 `KlleonSdkView`가 초기화되지 않음
+#### 3. View Not Ready
+**Problem**: `KlleonSdkView` not initialized before `play()` call
 
-**해결책**:
-- `AndroidView` 팩토리에서 뷰 초기화 확인
-- 뷰가 준비되었을 때만 버튼 활성화
-- SDK 메서드 호출 전에 null 검사 추가
+**Solution**:
+- Check view initialization in `AndroidView` factory
+- Enable buttons only when view is ready
+- Add null checks before SDK method calls
 
-### 디버깅 팁
+### Debugging Tips
 
-#### 상태 모니터링
+#### State Monitoring
 ```kotlin
-// 모든 상태 변경 모니터링
+// Monitor all state changes
 klleonOndeviceSdk.sdkState.collect { state ->
-    Log.d("SDKState", "상태 업데이트: $state")
+    Log.d("SDKState", "State update: $state")
     
     try {
         val json = JSONObject(state)
         val message = json.getString("message")
         val type = json.optString("type", "unknown")
-        Log.d("SDKState", "파싱됨 - 타입: $type, 메시지: $message")
+        Log.d("SDKState", "Parsed - Type: $type, Message: $message")
     } catch (e: Exception) {
-        Log.w("SDKState", "상태 JSON 파싱 실패", e)
+        Log.w("SDKState", "Failed to parse state JSON", e)
     }
 }
 ```
 
-## 테스트 전략
+## Testing Strategy
 
-### 단위 테스트
+### Unit Testing
 ```kotlin
 @Test
 fun testAssetCopying() {
-    // 에셋 파일 복사 로직 테스트
+    // Test asset file copying logic
     val testFile = File(context.cacheDir, "test.mp4")
     copyAssetToCache("test.mp4")
-    assertTrue("에셋 파일이 존재해야 함", testFile.exists())
+    assertTrue("Asset file should exist", testFile.exists())
 }
 ```
 
-### 통합 테스트
+### Integration Testing
 ```kotlin
 @Test
 fun testSDKInitialization() {
     val sdk = KlleonOndeviceSdk()
-    assertNotNull("SDK가 초기화되어야 함", sdk)
+    assertNotNull("SDK should be initialized", sdk)
     
-    // 상태 관찰 테스트
+    // Test state observation
     val states = mutableListOf<String>()
     sdk.sdkState.take(1).collect { state ->
         states.add(state)
     }
     
-    assertTrue("초기 상태를 받아야 함", states.isNotEmpty())
+    assertTrue("Should receive initial state", states.isNotEmpty())
 }
 ```
 
-### UI 테스트
+### UI Testing
 ```kotlin
 @Test
 fun testPlayButtonEnabled() {
@@ -167,12 +167,12 @@ fun testPlayButtonEnabled() {
         WorkerScreen(klleonOndeviceSdk = mockSdk)
     }
     
-    // 초기에는 비활성화
+    // Initially disabled
     composeTestRule
         .onNodeWithText("Play")
         .assertIsNotEnabled()
     
-    // 뷰 초기화 후 활성화되어야 함
+    // Should be enabled after view initialization
     composeTestRule.waitUntil {
         composeTestRule
             .onNodeWithText("Play")
