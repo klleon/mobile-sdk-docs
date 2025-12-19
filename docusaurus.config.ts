@@ -94,7 +94,7 @@ const config: Config = {
               padding: 0;
               box-shadow: none;
             ">
-              0.1.2
+              0.2.3
               <span style="
                 display: inline-block;
                 margin-left: 4px;
@@ -110,7 +110,7 @@ const config: Config = {
                 box-shadow: none;
                 vertical-align: middle;
               ">
-                Beta
+                Latest
               </span>
             </span>
         `,

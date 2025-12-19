@@ -2,23 +2,23 @@
 id: get-started
 sidebar_position: 3
 title: get-started
-sidebar_label: Get Started
+sidebar_label: Getting Started
 ---
 
-# Get Started
+# Getting Started
 
 ## Prerequisites
 
-Before using the Klleon Chat SDK, you need the following preparations:
+Before using the Klleon Chat SDK, you need the following:
 
-1.  **Kleon Studio Account**: You need a [Kleon Studio](https://www.studio.klleon.io/) account to use SDK features. If you don't have an account, please sign up first.
-2.  **SDK Key Issuance**: After domain registration, a unique `sdk_key` for use on that domain will be issued. This key is required for SDK initialization.
+1.  **Klleon Studio Account**: You need a [Klleon Studio](https://www.studio.klleon.io/) account to use SDK features. If you don't have an account, please sign up first.
+2.  **SDK Key Issuance**: After domain registration, a unique `sdk_key` will be issued for use with that domain. This key is required for SDK initialization.
 
 ## Permissions
 
 ### AndroidManifest.xml
 
-Add the required permissions to `AndroidManifest.xml`:
+Add the required permissions to your `AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -81,10 +81,10 @@ import io.klleon.ondevice.render.KlleonSdkView
 @RequiresApi(Build.VERSION_CODES.S)
 class MainActivity : ComponentActivity() {
     private val klleonOndeviceSdk = KlleonOndeviceSdk()
-    
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         if (checkPermissions()) {
             initializeApp()
         } else {
@@ -130,8 +130,8 @@ class MainActivity : ComponentActivity() {
 
 ## Next Steps
 
-After completing the setup:
+After completing setup:
 
 1. Check the [API Reference](api-reference) for available methods
 2. Follow the [Guides](../guides/guides) for optimal integration
-3. Check the [Usage Examples](../examples/examples) for implementation patterns
+3. Review [Usage Examples](../examples/examples) for implementation patterns

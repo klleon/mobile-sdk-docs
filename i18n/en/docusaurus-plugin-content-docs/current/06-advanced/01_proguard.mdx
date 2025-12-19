@@ -1,0 +1,136 @@
+---
+id: proguard
+sidebar_position: 1
+title: ProGuard / R8 Configuration
+sidebar_label: ProGuard
+---
+
+# ProGuard / R8 Configuration
+
+If you apply obfuscation (ProGuard/R8) to your app, add the following rules to `proguard-rules.pro`.
+
+## Required Rules
+
+```proguard
+# ============================================
+# Klleon Ondevice SDK - ProGuard Rules
+# ============================================
+
+# Klleon SDK Public API
+-keep public class io.klleon.ondevice.KlleonOndeviceSdk { public *; }
+-keep public class io.klleon.ondevice.render.KlleonSdkView { public *; }
+-keep public class io.klleon.ondevice.ResourceManager { public *; }
+
+# SDK Data Models
+-keep class io.klleon.ondevice.websocket.model.** { *; }
+-keep class io.klleon.ondevice.tts.api.** { *; }
+
+# ============================================
+# External Libraries
+# ============================================
+
+# Jackson (JSON Parsing)
+-keep class com.fasterxml.jackson.** { *; }
+-keep @com.fasterxml.jackson.annotation.JsonIgnoreProperties class * { *; }
+-keepclassmembers class * {
+    @com.fasterxml.jackson.annotation.JsonProperty *;
+    @com.fasterxml.jackson.annotation.JsonCreator <init>(...);
+}
+
+# TensorFlow Lite
+-keep class org.tensorflow.** { *; }
+-dontwarn org.tensorflow.**
+
+# OpenCV
+-keep class org.opencv.** { *; }
+-dontwarn org.opencv.**
+
+# PyTorch Mobile
+-keep class org.pytorch.** { *; }
+-keep class com.facebook.** { *; }
+-dontwarn org.pytorch.**
+-dontwarn com.facebook.**
+
+# OkHttp (WebSocket)
+-keep class com.squareup.okhttp3.** { *; }
+-keep class okio.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# Kotlin Coroutines
+-keep class kotlinx.coroutines.** { *; }
+-dontwarn kotlinx.coroutines.**
+
+# Kotlin Metadata
+-keep class kotlin.Metadata { *; }
+-keepclassmembers class **$WhenMappings { <fields>; }
+
+# ============================================
+# Compatibility
+# ============================================
+
+# Java 9+ Compatibility
+-dontwarn java.lang.invoke.StringConcatFactory
+
+# Preserve R8/ProGuard Attributes
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keepattributes InnerClasses,EnclosingMethod
+```
+
+## Optional Rules
+
+### When Using New Relic
+
+```proguard
+# New Relic APM
+-keep class com.newrelic.** { *; }
+-dontwarn com.newrelic.**
+-keepattributes Exceptions, Signature, InnerClasses, LineNumberTable
+```
+
+### For Debugging (Development Environment)
+
+```proguard
+# Preserve Stack Traces (recommended to remove in release)
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+```
+
+## Troubleshooting
+
+### Jackson Related Errors
+
+When `JsonMappingException` or `JsonParseException` occurs:
+
+```proguard
+# Preserve all Jackson annotations
+-keepclassmembers class * {
+    @com.fasterxml.jackson.annotation.* <fields>;
+    @com.fasterxml.jackson.annotation.* <init>(...);
+}
+```
+
+### Native Library Errors
+
+When `UnsatisfiedLinkError` occurs, verify the following configuration in `build.gradle`:
+
+```kotlin
+android {
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libc++_shared.so"
+        }
+    }
+}
+```
+
+### TensorFlow Lite Errors
+
+When GPU Delegate initialization fails:
+
+```proguard
+# Preserve GPU Delegate related classes
+-keep class org.tensorflow.lite.gpu.** { *; }
+```

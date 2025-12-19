@@ -1,0 +1,136 @@
+---
+id: proguard
+sidebar_position: 1
+title: ProGuard / R8 設定
+sidebar_label: ProGuard
+---
+
+# ProGuard / R8 設定
+
+アプリに難読化（ProGuard/R8）を適用する場合、以下のルールを`proguard-rules.pro`に追加してください。
+
+## 必須ルール
+
+```proguard
+# ============================================
+# Klleon Ondevice SDK - ProGuard Rules
+# ============================================
+
+# Klleon SDK パブリックAPI
+-keep public class io.klleon.ondevice.KlleonOndeviceSdk { public *; }
+-keep public class io.klleon.ondevice.render.KlleonSdkView { public *; }
+-keep public class io.klleon.ondevice.ResourceManager { public *; }
+
+# SDK データモデル
+-keep class io.klleon.ondevice.websocket.model.** { *; }
+-keep class io.klleon.ondevice.tts.api.** { *; }
+
+# ============================================
+# 外部ライブラリ
+# ============================================
+
+# Jackson (JSONパーシング)
+-keep class com.fasterxml.jackson.** { *; }
+-keep @com.fasterxml.jackson.annotation.JsonIgnoreProperties class * { *; }
+-keepclassmembers class * {
+    @com.fasterxml.jackson.annotation.JsonProperty *;
+    @com.fasterxml.jackson.annotation.JsonCreator <init>(...);
+}
+
+# TensorFlow Lite
+-keep class org.tensorflow.** { *; }
+-dontwarn org.tensorflow.**
+
+# OpenCV
+-keep class org.opencv.** { *; }
+-dontwarn org.opencv.**
+
+# PyTorch Mobile
+-keep class org.pytorch.** { *; }
+-keep class com.facebook.** { *; }
+-dontwarn org.pytorch.**
+-dontwarn com.facebook.**
+
+# OkHttp (WebSocket)
+-keep class com.squareup.okhttp3.** { *; }
+-keep class okio.** { *; }
+-dontwarn okhttp3.**
+-dontwarn okio.**
+
+# Kotlin Coroutines
+-keep class kotlinx.coroutines.** { *; }
+-dontwarn kotlinx.coroutines.**
+
+# Kotlin Metadata
+-keep class kotlin.Metadata { *; }
+-keepclassmembers class **$WhenMappings { <fields>; }
+
+# ============================================
+# 互換性
+# ============================================
+
+# Java 9+ 互換性
+-dontwarn java.lang.invoke.StringConcatFactory
+
+# R8/ProGuard 属性保持
+-keepattributes Signature
+-keepattributes *Annotation*
+-keepattributes SourceFile,LineNumberTable
+-keepattributes InnerClasses,EnclosingMethod
+```
+
+## オプションルール
+
+### New Relic使用時
+
+```proguard
+# New Relic APM
+-keep class com.newrelic.** { *; }
+-dontwarn com.newrelic.**
+-keepattributes Exceptions, Signature, InnerClasses, LineNumberTable
+```
+
+### デバッグ時（開発環境）
+
+```proguard
+# スタックトレース保持（リリースでは削除推奨）
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+```
+
+## トラブルシューティング
+
+### Jackson関連エラー
+
+`JsonMappingException`または`JsonParseException`発生時：
+
+```proguard
+# すべてのJacksonアノテーション保持
+-keepclassmembers class * {
+    @com.fasterxml.jackson.annotation.* <fields>;
+    @com.fasterxml.jackson.annotation.* <init>(...);
+}
+```
+
+### Nativeライブラリエラー
+
+`UnsatisfiedLinkError`発生時、`build.gradle`で以下の設定を確認：
+
+```kotlin
+android {
+    packaging {
+        jniLibs {
+            pickFirsts += "**/libc++_shared.so"
+        }
+    }
+}
+```
+
+### TensorFlow Liteエラー
+
+GPU Delegate初期化失敗時：
+
+```proguard
+# GPU Delegate関連クラス保持
+-keep class org.tensorflow.lite.gpu.** { *; }
+```

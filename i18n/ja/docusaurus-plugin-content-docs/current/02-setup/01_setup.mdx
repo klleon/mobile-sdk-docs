@@ -13,9 +13,11 @@ Klleon Ondevice SDKは、ビデオ処理、リアルタイムメッセージン�
 # セットアップ
 
 ## 1) 要件
+- **SDKバージョン**: 0.2.3
 - **最小SDK**: 26 (Android 8.0)
 - **ターゲットSDK**: 36
 - **NDKバージョン**: 28.2.13676358
+- **対応ABI**: arm64-v8a, armeabi-v7a
 ---
 
 ### 1-1. リソース
@@ -27,7 +29,7 @@ SDKには以下のアセットファイルが必要です：
 
 ### 1-2. AARファイル
 
-- Kleon SDK AARファイルを`app/libs`にコピーします。
+- Klleon SDK AARファイルを`app/libs`にコピーします。
 
 
 ## 2) Android設定
@@ -36,12 +38,12 @@ SDKには以下のアセットファイルが必要です：
 android {
     compileSdk = 36
     ndkVersion = "28.2.13676358"
-    
+
     defaultConfig {
         minSdk = 26
         targetSdk = 36
     }
-    
+
     packaging {
         jniLibs {
             pickFirsts += "**/libc++_shared.so"
@@ -100,7 +102,7 @@ android {
       implementation("com.fasterxml.jackson.core:jackson-databind:2.15.0")
       implementation("com.fasterxml.jackson.core:jackson-annotations:2.15.0")
       implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.0")
-  
+
       // Newrelic
       implementation("com.newrelic.agent.android:android-agent:7.6.1")
     ```

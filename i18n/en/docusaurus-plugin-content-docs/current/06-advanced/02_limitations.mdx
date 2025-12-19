@@ -1,0 +1,145 @@
+---
+id: limitations
+sidebar_position: 2
+title: Known Limitations
+sidebar_label: Limitations
+---
+
+# Known Limitations
+
+Please check the requirements and limitations below before using the SDK.
+
+## Device Requirements
+
+| Item | OpenCL Minimum | OpenCL Recommended |
+|------|----------------|-------------------|
+| **Android Version** | 8.0 (API 26) | 12+ (API 31) |
+| **RAM** | 4GB | 6GB or more |
+| **Storage** | 500MB | 1GB or more |
+| **GPU** | OpenGL ES 2.0 / OpenCL 1.2 | OpenGL ES 3.0+ / OpenCL 2.0+ |
+
+## Supported Architectures (ABI)
+
+| ABI | Support | Notes |
+|-----|---------|-------|
+| `arm64-v8a` | ✅ Supported | Most modern devices |
+| `armeabi-v7a` | ✅ Supported | Older 32-bit devices |
+| `x86_64` | ❌ Not supported | Emulators |
+| `x86` | ❌ Not supported | Emulators |
+
+:::warning Emulator Notice
+The SDK does not work on x86/x86_64 emulators.
+
+**Testing Methods:**
+- Use actual Android devices (recommended)
+- Use ARM-based emulators (e.g., default emulator on Apple Silicon Mac)
+:::
+
+## Network Requirements
+
+### Prerequisites
+- **Internet Connection**: Required for real-time WebSocket communication
+- **Protocol**: HTTPS / WSS (TLS 1.2 or higher)
+- **Port**: 443
+
+### Firewall Configuration
+```
+# Domains to allow
+*.klleon.io
+```
+
+### Network Permissions
+```xml
+<!-- AndroidManifest.xml -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
+## Known Issues
+
+### 1. Memory Usage
+
+Memory usage may be high during video processing and AI inference.
+
+**Recommendations:**
+```kotlin
+override fun onDestroy() {
+    super.onDestroy()
+    // Always release resources
+    klleonOndeviceSdk.finish()
+}
+
+override fun onLowMemory() {
+    super.onLowMemory()
+    // Handle low memory situation
+    klleonOndeviceSdk.finish()
+}
+```
+
+### 2. Background Restrictions
+
+Video processing pauses when the app transitions to the background.
+
+
+### 3. Single Instance Limitation
+
+Only **one instance** of `KlleonOndeviceSdk` should be created per app.
+
+```kotlin
+// ✅ Correct usage - single instance
+class MyApplication : Application() {
+    val klleonSdk = KlleonOndeviceSdk()
+}
+
+// ❌ Incorrect usage - multiple instances
+class MainActivity : Activity() {
+    val sdk1 = KlleonOndeviceSdk() // Instance 1
+    val sdk2 = KlleonOndeviceSdk() // Instance 2 - conflict!
+}
+```
+
+### 4. Screen Rotation
+
+SDK state may be reset when Activity is recreated during screen rotation.
+
+**Solution:**
+```xml
+<!-- AndroidManifest.xml - Handle screen rotation manually -->
+<activity
+    android:name=".MainActivity"
+    android:configChanges="orientation|screenSize|screenLayout" />
+```
+
+Or use ViewModel to maintain SDK instance:
+
+```kotlin
+class MainViewModel : ViewModel() {
+    val klleonSdk = KlleonOndeviceSdk()
+
+    override fun onCleared() {
+        super.onCleared()
+        klleonSdk.finish()
+    }
+}
+```
+
+## Performance Optimization Tips
+
+### GPU Acceleration
+
+The SDK uses GPU acceleration by default. If issues occur on some low-end devices:
+
+```kotlin
+// Check logs when GPU issues occur
+adb logcat | grep "Klleon_"
+```
+
+### Battery Optimization
+
+Battery consumption may be high during extended use:
+- Call `finish()` when not in use
+- Recommend stopping processing when screen is off
+
+## Support
+
+For issues not resolved by the above limitations, please contact us through [Klleon Studio](https://www.studio.klleon.io/).

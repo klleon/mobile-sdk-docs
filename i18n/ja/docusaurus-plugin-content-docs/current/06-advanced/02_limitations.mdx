@@ -1,0 +1,145 @@
+---
+id: limitations
+sidebar_position: 2
+title: 既知の制限事項
+sidebar_label: 制限事項
+---
+
+# 既知の制限事項
+
+SDK使用前に以下の要件と制限事項を確認してください。
+
+## デバイス要件
+
+| 項目 | OpenCL 最小 | OpenCL 推奨 |
+|------|-------------|-------------|
+| **Androidバージョン** | 8.0 (API 26) | 12+ (API 31) |
+| **RAM** | 4GB | 6GB以上 |
+| **ストレージ** | 500MB | 1GB以上 |
+| **GPU** | OpenGL ES 2.0 / OpenCL 1.2 | OpenGL ES 3.0+ / OpenCL 2.0+ |
+
+## 対応アーキテクチャ（ABI）
+
+| ABI | 対応状況 | 備考 |
+|-----|----------|------|
+| `arm64-v8a` | ✅ 対応 | ほとんどの最新デバイス |
+| `armeabi-v7a` | ✅ 対応 | 旧型32ビットデバイス |
+| `x86_64` | ❌ 非対応 | エミュレータ |
+| `x86` | ❌ 非対応 | エミュレータ |
+
+:::warning エミュレータに関する注意
+x86/x86_64エミュレータではSDKは動作しません。
+
+**テスト方法:**
+- 実際のAndroidデバイスを使用（推奨）
+- ARMベースのエミュレータを使用（例：Apple Silicon Macのデフォルトエミュレータ）
+:::
+
+## ネットワーク要件
+
+### 必須条件
+- **インターネット接続**: リアルタイムWebSocket通信に必須
+- **プロトコル**: HTTPS / WSS (TLS 1.2以上)
+- **ポート**: 443
+
+### ファイアウォール設定
+```
+# 許可が必要なドメイン
+*.klleon.io
+```
+
+### ネットワークパーミッション
+```xml
+<!-- AndroidManifest.xml -->
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
+## 既知の問題
+
+### 1. メモリ使用量
+
+ビデオ処理およびAI推論中はメモリ使用量が高くなる場合があります。
+
+**推奨事項:**
+```kotlin
+override fun onDestroy() {
+    super.onDestroy()
+    // 必ずリソースを解放
+    klleonOndeviceSdk.finish()
+}
+
+override fun onLowMemory() {
+    super.onLowMemory()
+    // メモリ不足時の処理
+    klleonOndeviceSdk.finish()
+}
+```
+
+### 2. バックグラウンド制限
+
+アプリがバックグラウンドに移行すると、ビデオ処理が一時停止します。
+
+
+### 3. シングルインスタンス制限
+
+`KlleonOndeviceSdk`インスタンスは**アプリごとに1つだけ**作成する必要があります。
+
+```kotlin
+// ✅ 正しい使用法 - シングルインスタンス
+class MyApplication : Application() {
+    val klleonSdk = KlleonOndeviceSdk()
+}
+
+// ❌ 間違った使用法 - 複数インスタンス
+class MainActivity : Activity() {
+    val sdk1 = KlleonOndeviceSdk() // インスタンス1
+    val sdk2 = KlleonOndeviceSdk() // インスタンス2 - 競合発生！
+}
+```
+
+### 4. 画面回転
+
+画面回転時にActivityが再作成されると、SDK状態が初期化される場合があります。
+
+**解決方法:**
+```xml
+<!-- AndroidManifest.xml - 画面回転を直接処理 -->
+<activity
+    android:name=".MainActivity"
+    android:configChanges="orientation|screenSize|screenLayout" />
+```
+
+またはViewModelを使用してSDKインスタンスを保持：
+
+```kotlin
+class MainViewModel : ViewModel() {
+    val klleonSdk = KlleonOndeviceSdk()
+
+    override fun onCleared() {
+        super.onCleared()
+        klleonSdk.finish()
+    }
+}
+```
+
+## パフォーマンス最適化のヒント
+
+### GPUアクセラレーション
+
+SDKはデフォルトでGPUアクセラレーションを使用します。一部の低スペックデバイスで問題が発生した場合：
+
+```kotlin
+// GPU問題発生時にログを確認
+adb logcat | grep "Klleon_"
+```
+
+### バッテリー最適化
+
+長時間使用時はバッテリー消費が大きくなる場合があります：
+- 使用しない時は`finish()`を呼び出す
+- 画面オフ時は処理停止を推奨
+
+## サポート
+
+上記の制限事項で解決できない問題は、[Klleon Studio](https://www.studio.klleon.io/)からお問い合わせください。
