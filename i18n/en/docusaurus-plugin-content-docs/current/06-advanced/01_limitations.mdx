@@ -1,18 +1,18 @@
 ---
 id: limitations
-sidebar_position: 2
+sidebar_position: 1
 title: Known Limitations
 sidebar_label: Limitations
 ---
 
 # Known Limitations
 
-Please check the requirements and limitations below before using the SDK.
+Please review the following requirements and limitations before using the SDK.
 
 ## Device Requirements
 
 | Item | OpenCL Minimum | OpenCL Recommended |
-|------|----------------|-------------------|
+|------|----------------|---------------------|
 | **Android Version** | 8.0 (API 26) | 12+ (API 31) |
 | **RAM** | 4GB | 6GB or more |
 | **Storage** | 500MB | 1GB or more |
@@ -20,19 +20,19 @@ Please check the requirements and limitations below before using the SDK.
 
 ## Supported Architectures (ABI)
 
-| ABI | Support | Notes |
-|-----|---------|-------|
-| `arm64-v8a` | ✅ Supported | Most modern devices |
-| `armeabi-v7a` | ✅ Supported | Older 32-bit devices |
-| `x86_64` | ❌ Not supported | Emulators |
-| `x86` | ❌ Not supported | Emulators |
+| ABI | Supported | Notes |
+|-----|-----------|-------|
+| `arm64-v8a` | Yes | Most modern devices |
+| `armeabi-v7a` | Yes | Older 32-bit devices |
+| `x86_64` | No | Emulator |
+| `x86` | No | Emulator |
 
 :::warning Emulator Notice
 The SDK does not work on x86/x86_64 emulators.
 
-**Testing Methods:**
-- Use actual Android devices (recommended)
-- Use ARM-based emulators (e.g., default emulator on Apple Silicon Mac)
+**Testing methods:**
+- Use a physical Android device (recommended)
+- Use an ARM-based emulator (e.g., default emulator on Apple Silicon Macs)
 :::
 
 ## Network Requirements
@@ -44,7 +44,7 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### Firewall Configuration
 ```
-# Domains to allow
+# Domains that must be allowed
 *.klleon.io
 ```
 
@@ -54,6 +54,17 @@ The SDK does not work on x86/x86_64 emulators.
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
+
+## Audio Limitations
+
+### USB Microphone Compatibility
+
+- **MMAP Policy**: The default value of `mmapEnabled` is `false`. Enabling MMAP may cause stream open failures on some USB microphones.
+- **USB Device Selection**: USB microphones are automatically detected and selected when connected.
+- **Incompatible Devices**: On some MediaTek-based TVs, opening audio streams from USB composite devices (e.g., DM30RGB) may fail.
+
+### Echo Prevention
+- Voice recognition is automatically blocked while the avatar is speaking.
 
 ## Known Issues
 
@@ -71,36 +82,36 @@ override fun onDestroy() {
 
 override fun onLowMemory() {
     super.onLowMemory()
-    // Handle low memory situation
+    // Handle low memory
     klleonOndeviceSdk.finish()
 }
 ```
 
 ### 2. Background Restrictions
 
-Video processing pauses when the app transitions to the background.
+Video processing is paused when the app moves to the background.
 
 
-### 3. Single Instance Limitation
+### 3. Single Instance Restriction
 
-Only **one instance** of `KlleonOndeviceSdk` should be created per app.
+Only **one** `KlleonOndeviceSdk` instance should be created per app.
 
 ```kotlin
-// ✅ Correct usage - single instance
+// Correct usage - single instance
 class MyApplication : Application() {
     val klleonSdk = KlleonOndeviceSdk()
 }
 
-// ❌ Incorrect usage - multiple instances
+// Incorrect usage - multiple instances
 class MainActivity : Activity() {
     val sdk1 = KlleonOndeviceSdk() // Instance 1
-    val sdk2 = KlleonOndeviceSdk() // Instance 2 - conflict!
+    val sdk2 = KlleonOndeviceSdk() // Instance 2 - will cause conflicts!
 }
 ```
 
 ### 4. Screen Rotation
 
-SDK state may be reset when Activity is recreated during screen rotation.
+SDK state may be reset when the Activity is recreated due to screen rotation.
 
 **Solution:**
 ```xml
@@ -110,7 +121,7 @@ SDK state may be reset when Activity is recreated during screen rotation.
     android:configChanges="orientation|screenSize|screenLayout" />
 ```
 
-Or use ViewModel to maintain SDK instance:
+Or use a ViewModel to retain the SDK instance:
 
 ```kotlin
 class MainViewModel : ViewModel() {
@@ -123,11 +134,17 @@ class MainViewModel : ViewModel() {
 }
 ```
 
+### 5. Android TV Specifics
+
+- On the TV platform, auto-focus may be assigned to the first focusable element when the layout changes, causing the keyboard to appear automatically.
+- Block this by using `focusProperties { canFocus = false }` and only enable it on click.
+- Some USB audio device compatibility issues may occur on MediaTek-based TVs.
+
 ## Performance Optimization Tips
 
 ### GPU Acceleration
 
-The SDK uses GPU acceleration by default. If issues occur on some low-end devices:
+The SDK uses GPU acceleration by default. If issues occur on lower-end devices:
 
 ```kotlin
 // Check logs when GPU issues occur
@@ -136,9 +153,10 @@ adb logcat | grep "Klleon_"
 
 ### Battery Optimization
 
-Battery consumption may be high during extended use:
+Battery consumption can be significant during prolonged use:
 - Call `finish()` when not in use
-- Recommend stopping processing when screen is off
+- Recommended to stop processing when the screen is off
+- Control video as needed with `pauseVideo()` / `resumeVideo()`
 
 ## Support
 

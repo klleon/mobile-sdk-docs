@@ -24,7 +24,7 @@ SDK 콘텐츠를 렌더링하기 위한 커스텀 Android View입니다.
 @Composable
 fun SdkViewComponent() {
     var workerView by remember { mutableStateOf<KlleonSdkView?>(null) }
-    
+
     AndroidView(
         factory = { context ->
             KlleonSdkView(context).also { view ->
@@ -36,107 +36,256 @@ fun SdkViewComponent() {
 }
 ```
 
+#### setRenderRotation()
+
+TV 등에서 화면 회전이 필요할 때 사용합니다.
+
+```kotlin
+klleonSdkView.setRenderRotation(270) // 0, 90, 270도 지원
+```
+
+---
+
 ## SDK 메서드
 
 ### play()
 
-얼굴 인식 처리와 함께 비디오 재생을 시작합니다.
+AI 아바타 비디오 재생을 시작합니다.
 
 ```kotlin
 klleonOndeviceSdk.play(
-    activity: ComponentActivity,
-    view: KlleonSdkView,
-    videoPath: String,
-    facialPath: String,
-    sdkKey: String
+    context: Context,
+    klleonSdkViewInstance: KlleonSdkView?,
+    sdkKey: String,
+    characterId: String,
+    language: String,
+    mmapEnabled: Boolean = false
 )
 ```
 
 **매개변수:**
-- `activity`: ComponentActivity - 현재 액티비티 컨텍스트
-- `view`: KlleonSdkView - 렌더링을 위한 뷰 인스턴스
-- `videoPath`: String - 비디오 파일의 절대 경로 (.mp4)
-- `facialPath`: String - 얼굴 처리 파일의 절대 경로 (.npz)
-- `sdkKey`: String - 고유 SDK 식별자
+| 매개변수 | 타입 | 필수 | 기본값 | 설명 |
+|---------|------|------|--------|------|
+| `context` | Context | O | - | 현재 컨텍스트 |
+| `klleonSdkViewInstance` | KlleonSdkView? | O | - | 렌더링 뷰 |
+| `sdkKey` | String | O | - | SDK 인증 키 |
+| `characterId` | String | O | - | AI 아바타 캐릭터 ID |
+| `language` | String | O | - | 언어 코드 (ko, en, ja 등) |
+| `mmapEnabled` | Boolean | X | false | 오디오 MMAP 활성화 |
 
 **예제:**
 ```kotlin
 workerView?.let { view ->
     klleonOndeviceSdk.play(
-        context as ComponentActivity,
-        view,
-        vpPath,
-        fpPath,
-        "SDK KEY"
+        context = this,
+        klleonSdkViewInstance = view,
+        sdkKey = "YOUR_SDK_KEY",
+        characterId = "character_001",
+        language = "ko"
     )
 }
 ```
 
+### connect()
+
+WebSocket 재연결을 수행합니다.
+
+```kotlin
+klleonOndeviceSdk.connect()
+```
+
 ### finish()
 
-SDK를 중지하고 리소스를 정리합니다.
+SDK를 중지하고 모든 리소스를 정리합니다.
 
 ```kotlin
 klleonOndeviceSdk.finish()
 ```
 
-**사용법:**
-```kotlin
-Button(
-    onClick = { klleonOndeviceSdk.finish() }
-) {
-    Text("Stop")
-}
-```
+---
+
+## 메시지 API
 
 ### sendMessage()
 
 SDK의 메시징 시스템을 통해 메시지를 전송합니다.
 
 ```kotlin
-klleonOndeviceSdk.sendMessage(message: String)
+klleonOndeviceSdk.sendMessage(text: String)
 ```
-
-**매개변수:**
-- `message`: String - 전송할 메시지 내용
 
 **예제:**
 ```kotlin
-try {
-    klleonOndeviceSdk.sendMessage("Hello from app")
-} catch (e: Exception) {
-    Log.e("SDK", "Error sending message", e)
-}
+klleonOndeviceSdk.sendMessage("안녕하세요")
 ```
 
 ### sendMessageEcho()
 
-SDK를 통해 에코 메시지를 전송합니다.
+에코 메시지를 전송합니다 (테스트용).
 
 ```kotlin
-klleonOndeviceSdk.sendMessageEcho(message: String)
+klleonOndeviceSdk.sendMessageEcho(text: String)
 ```
 
-**매개변수:**
-- `message`: String - 에코할 메시지 내용
+### sendChangeLanguage()
+
+대화 중 언어를 동적으로 변경합니다.
+
+```kotlin
+klleonOndeviceSdk.sendChangeLanguage(language: String)
+```
 
 **예제:**
 ```kotlin
-try {
-    klleonOndeviceSdk.sendMessageEcho("Echo test")
-} catch (e: Exception) {
-    Log.e("SDK", "Error sending echo message", e)
-}
+// 영어로 변경
+klleonOndeviceSdk.sendChangeLanguage("en")
 ```
+
+### sendStopSpeech()
+
+아바타의 현재 발화를 즉시 중단합니다.
+
+```kotlin
+klleonOndeviceSdk.sendStopSpeech()
+```
+
+---
+
+## 비디오 제어 API
+
+### pauseVideo()
+
+비디오 디코딩을 일시정지합니다. 리소스는 유지됩니다.
+
+```kotlin
+klleonOndeviceSdk.pauseVideo()
+```
+
+### resumeVideo()
+
+일시정지된 비디오 디코딩을 재개합니다.
+
+```kotlin
+klleonOndeviceSdk.resumeVideo()
+```
+
+### isVideoPaused()
+
+비디오가 일시정지 상태인지 확인합니다.
+
+```kotlin
+val isPaused: Boolean = klleonOndeviceSdk.isVideoPaused()
+```
+
+---
+
+## 음성 인식 API
+
+### startVoiceRecognition()
+
+음성 인식을 시작합니다. 마이크 녹음을 시작하고 WebSocket으로 START_VOICE 신호를 전송합니다. 무음이 감지되면 자동으로 녹음을 종료하고 END_VOICE 신호를 전송합니다.
+
+```kotlin
+fun startVoiceRecognition(
+    config: SilenceDetectionConfig = SilenceDetectionConfig.default()
+): Boolean
+```
+
+**매개변수:**
+- `config`: 무음 감지 설정 (선택, 기본값: `SilenceDetectionConfig.default()`)
+
+**반환값:** 성공 여부 (Boolean)
+
+**예제:**
+```kotlin
+// 기본 설정으로 음성 인식 시작
+val success = klleonOndeviceSdk.startVoiceRecognition()
+
+// 커스텀 설정으로 시작
+val customConfig = SilenceDetectionConfig.default().copy(
+    silenceTimeoutMs = 2000L  // 무음 감지 시간 2초
+)
+val success = klleonOndeviceSdk.startVoiceRecognition(customConfig)
+```
+
+### stopVoiceRecognition()
+
+음성 인식을 정지합니다.
+
+```kotlin
+klleonOndeviceSdk.stopVoiceRecognition()
+```
+
+### isVoiceRecognizing()
+
+음성 인식 중인지 확인합니다.
+
+```kotlin
+val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
+```
+
+---
+
+## 녹음 제어 API
+
+### startRecording()
+
+마이크 녹음을 시작합니다.
+
+```kotlin
+val success: Boolean = klleonOndeviceSdk.startRecording()
+```
+
+### stopRecording()
+
+녹음을 정지합니다.
+
+```kotlin
+klleonOndeviceSdk.stopRecording()
+```
+
+### isRecording()
+
+녹음 중인지 확인합니다.
+
+```kotlin
+val recording: Boolean = klleonOndeviceSdk.isRecording()
+```
+
+### hasRecordAudioPermission()
+
+RECORD_AUDIO 권한이 있는지 확인합니다.
+
+```kotlin
+val hasPermission: Boolean = klleonOndeviceSdk.hasRecordAudioPermission()
+```
+
+### getInputLevel()
+
+현재 마이크 입력 레벨을 반환합니다 (0.0 ~ 1.0).
+
+```kotlin
+val level: Float = klleonOndeviceSdk.getInputLevel()
+```
+
+### hasUsbMicrophone()
+
+USB 마이크가 연결되어 있는지 확인합니다.
+
+```kotlin
+val hasUsb: Boolean = klleonOndeviceSdk.hasUsbMicrophone()
+```
+
+---
 
 ## 상태 관리
 
 ### sdkState
 
-SDK 상태 업데이트를 JSON 문자열로 방출하는 Flow입니다.
+SDK 상태 업데이트를 JSON 문자열로 방출하는 SharedFlow입니다.
 
 ```kotlin
-klleonOndeviceSdk.sdkState: Flow<String>
+klleonOndeviceSdk.sdkState: SharedFlow<String>
 ```
 
 **사용법:**
@@ -148,19 +297,137 @@ klleonOndeviceSdk.sdkState.collect { state ->
     } catch (t: Throwable) {
         state.toString()
     }
-    
+
     // 상태 업데이트 처리
     updateUI(messageToAdd)
 }
 ```
 
-**상태 형식:**
-상태는 일반적으로 다음을 포함하는 JSON 문자열입니다:
+**상태 형식 (JSON):**
 ```json
 {
-  "message":"","chat_type":"ACTIVATE_VOICE","time":"2025-09-03T05:42:08.394975295","id":"99dd3ab3-53c4-4418-bee4-b1fbaea272aa"
+  "message": "",
+  "chat_type": "ACTIVATE_VOICE",
+  "time": "2025-09-03T05:42:08.394975295",
+  "id": "99dd3ab3-53c4-4418-bee4-b1fbaea272aa"
 }
 ```
+
+**주요 chat_type 값:**
+| chat_type | 설명 |
+|-----------|------|
+| `WSS_OPEN` | WebSocket 연결 성공 |
+| `WSS_FAILURE` | WebSocket 연결 실패 |
+| `WSS_CLOSING` | WebSocket 연결 종료 중 |
+| `WSS_CLOSED` | WebSocket 연결 종료됨 |
+| `WSS_RETRY_OVER` | 최대 재시도 초과 |
+| `WSS_NOT_CONNECTED` | 미연결 상태 |
+| `ACTIVATE_VOICE` | 음성 활성화 |
+| `RESPONSE` | 아바타 응답 메시지 |
+| `STT_RESULT` | 음성 인식 결과 |
+| `STT_PARTIAL` | 음성 인식 중간 결과 |
+| `STT_ERROR` | 음성 인식 에러 |
+
+### recorderState
+
+녹음기 상태를 실시간으로 구독할 수 있는 StateFlow입니다.
+
+```kotlin
+klleonOndeviceSdk.recorderState: StateFlow<OboeRecorderState>
+```
+
+**상태 값:**
+| 상태 | 설명 |
+|------|------|
+| `Idle` | 초기 상태 |
+| `Starting` | 시작 중 |
+| `Recording(deviceId, deviceName, deviceType)` | 녹음 중 |
+| `Stopping` | 정지 중 |
+| `Error(message)` | 에러 상태 |
+
+### silenceDetectionResult
+
+무음 감지 결과를 방출하는 SharedFlow입니다.
+
+```kotlin
+klleonOndeviceSdk.silenceDetectionResult: SharedFlow<SilenceDetectionResult>?
+```
+
+**결과 타입:**
+| 타입 | 설명 |
+|------|------|
+| `SpeechTimeout` | 음성 입력 대기 시간 초과 |
+| `SilenceDetected` | 음성 후 무음 감지 (녹음 자동 정지) |
+| `MaxTimeReached` | 최대 녹음 시간 초과 |
+| `ManualStop` | 수동 정지 |
+| `Error` | 에러 |
+
+---
+
+## SilenceDetectionConfig
+
+음성 인식 시 무음 감지 동작을 설정합니다.
+
+```kotlin
+import io.klleon.ondevice.audio.oboe.SilenceDetectionConfig
+```
+
+**필드:**
+| 필드 | 타입 | 기본값 | 설명 |
+|------|------|--------|------|
+| `silenceThreshold` | Float | 0.02 | 무음 판단 레벨 임계값 |
+| `speechThreshold` | Float | 0.05 | 음성 판단 레벨 임계값 |
+| `speechTimeoutMs` | Long | 5000 | 음성 입력 대기 시간 (ms) |
+| `silenceTimeoutMs` | Long | 2000 | 음성 후 무음 감지 시간 (ms) |
+| `maxRecordingTimeMs` | Long | 60000 | 최대 녹음 시간 (ms, 0=무제한) |
+| `preBufferMs` | Int | 300 | 음성 시작 전 오디오 보존 (ms) |
+| `preBufferDelayMs` | Long | 300 | 프리버퍼 플러시 지연 (ms) |
+
+**프리셋:**
+| 프리셋 | 특징 |
+|--------|------|
+| `SilenceDetectionConfig.default()` | 기본 설정 |
+| `SilenceDetectionConfig.fast()` | 빠른 응답 (speechTimeout 3초, silenceTimeout 1.5초) |
+| `SilenceDetectionConfig.longSpeech()` | 긴 발화 (speechTimeout 7초, silenceTimeout 3초, maxRecording 120초) |
+| `SilenceDetectionConfig.noisyEnvironment()` | 소음 환경 (임계값 상향: silence 0.05, speech 0.10) |
+
+**예제:**
+```kotlin
+// 프리셋 사용
+klleonOndeviceSdk.startVoiceRecognition(SilenceDetectionConfig.fast())
+
+// 커스텀 설정
+val config = SilenceDetectionConfig.default().copy(
+    speechTimeoutMs = 3000L,
+    maxRecordingTimeMs = 120_000L
+)
+klleonOndeviceSdk.startVoiceRecognition(config)
+```
+
+---
+
+## 프로퍼티
+
+### klleonSdkView
+
+현재 렌더링 뷰 참조입니다.
+
+```kotlin
+var klleonSdkView: KlleonSdkView?
+```
+
+---
+
+## Companion Object
+
+| 프로퍼티 | 타입 | 설명 |
+|---------|------|------|
+| `VERSION` | String | SDK 버전 |
+| `playing` | Boolean | SDK 재생 상태 |
+| `stopping` | Boolean | SDK 정지 중 상태 |
+| `sendVoice` | Boolean | 음성 전송 상태 |
+
+---
 
 ## 오류 처리
 
@@ -180,7 +447,7 @@ try {
 ```kotlin
 class MainActivity : ComponentActivity() {
     private val klleonOndeviceSdk = KlleonOndeviceSdk()
-    
+
     override fun onDestroy() {
         super.onDestroy()
         klleonOndeviceSdk.finish() // 리소스 정리

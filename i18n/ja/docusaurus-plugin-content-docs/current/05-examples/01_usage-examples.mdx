@@ -5,14 +5,14 @@ title: android-examples
 sidebar_label: android examples
 ---
 
-# Android使用例
+# Androidの使用例
 
-## MainActivity実装
+## MainActivityの実装
 
 ```kotlin
-@RequiresApi(Build.VERSION_CODES.S)
 class MainActivity : ComponentActivity() {
     private val klleonOndeviceSdk = KlleonOndeviceSdk()
+    private val resourceManager = ResourceManager()
 
     private val requiredPermissions = arrayOf(
         Manifest.permission.RECORD_AUDIO
@@ -46,27 +46,18 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 起動時にアセットをキャッシュディレクトリにコピー
-        copyAssetToCache("loop_sample.mp4")
-        copyAssetToCache("loop_sample.npz")
-    }
-
-    private fun copyAssetToCache(fileName: String) {
-        try {
-            val assetManager = assets
-            val inputStream = assetManager.open(fileName)
-            val cacheFile = File(cacheDir, fileName)
-
-            if (!cacheFile.exists()) {
-                val outputStream = FileOutputStream(cacheFile)
-                inputStream.copyTo(outputStream)
-                outputStream.close()
-                Log.d("MainActivity", "$fileNameをキャッシュにコピーしました: ${cacheFile.absolutePath}")
+        // リソースをキャッシュディレクトリにコピー
+        resourceManager.download(
+            context = this,
+            mp4FileName = "loop_sample.mp4",
+            npzFileName = "loop_sample.npz",
+            onSuccess = {
+                // リソース準備完了 — play()の呼び出しが可能です
+            },
+            onError = { error ->
+                Log.e("MainActivity", "リソース準備失敗", error)
             }
-            inputStream.close()
-        } catch (e: IOException) {
-            Log.e("MainActivity", "アセット$fileNameコピー中にエラーが発生しました", e)
-        }
+        )
     }
 }
 ```
@@ -76,7 +67,6 @@ class MainActivity : ComponentActivity() {
 ### WorkerScreen Composable
 
 ```kotlin
-@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun WorkerScreen(
     klleonOndeviceSdk: KlleonOndeviceSdk,
@@ -86,11 +76,7 @@ fun WorkerScreen(
     var workerView by remember { mutableStateOf<KlleonSdkView?>(null) }
     var messageData by remember { mutableStateOf("") }
 
-    // アセットファイルパス
-    val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
-    val fpPath = remember { File(context.cacheDir, "loop_sample.npz").absolutePath }
-
-    // SDK状態収集
+    // SDK状態の収集
     val accumulatedMessages by viewModel.accumulatedMessages.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -102,7 +88,7 @@ fun WorkerScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDK状態表示
+        // SDK状態の表示
         Card(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -111,9 +97,7 @@ fun WorkerScreen(
                 containerColor = Color.Transparent
             )
         ) {
-            Column(
-                modifier = Modifier.padding(12.dp)
-            ) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     text = accumulatedMessages,
                     style = MaterialTheme.typography.bodySmall,
@@ -136,10 +120,9 @@ fun WorkerScreen(
                     .height(400.dp)
             ) {
                 AndroidView(
-                    factory = { context ->
-                        KlleonSdkView(context).also { view ->
+                    factory = { ctx ->
+                        KlleonSdkView(ctx).also { view ->
                             workerView = view
-                            Log.d("WorkerScreen", "KlleonSdkView作成されました: $view")
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -162,13 +145,12 @@ fun WorkerScreen(
                 Button(
                     onClick = {
                         workerView?.let { view ->
-                            Log.d("WorkerScreen", "workerPlay $vpPath $fpPath $view")
                             klleonOndeviceSdk.play(
-                                context as ComponentActivity, 
-                                view, 
-                                vpPath, 
-                                fpPath,
-                                "SDK KEY"
+                                context = context,
+                                klleonSdkViewInstance = view,
+                                sdkKey = "YOUR_SDK_KEY",
+                                characterId = "character_001",
+                                language = "ko"
                             )
                         }
                     },
@@ -192,11 +174,7 @@ fun WorkerScreen(
             ) {
                 Button(
                     onClick = {
-                        try {
-                            klleonOndeviceSdk.sendMessage(messageData)
-                        } catch (e: Exception) {
-                            Log.e("WorkerScreen", "メッセージ送信エラー", e)
-                        }
+                        klleonOndeviceSdk.sendMessage(messageData)
                     },
                     modifier = Modifier.weight(1f)
                 ) {
@@ -205,15 +183,48 @@ fun WorkerScreen(
 
                 Button(
                     onClick = {
-                        try {
-                            klleonOndeviceSdk.sendMessageEcho(messageData)
-                        } catch (e: Exception) {
-                            Log.e("WorkerScreen", "エコー送信エラー", e)
-                        }
+                        klleonOndeviceSdk.sendMessageEcho(messageData)
                     },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("エコー")
+                }
+
+                Button(
+                    onClick = {
+                        klleonOndeviceSdk.sendStopSpeech()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("発話中断")
+                }
+            }
+
+            // 音声認識ボタン
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        if (klleonOndeviceSdk.isVoiceRecognizing()) {
+                            klleonOndeviceSdk.stopVoiceRecognition()
+                        } else {
+                            klleonOndeviceSdk.startVoiceRecognition()
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("音声認識")
+                }
+
+                Button(
+                    onClick = {
+                        klleonOndeviceSdk.sendChangeLanguage("en")
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("英語に切替")
                 }
             }
         }
@@ -221,43 +232,46 @@ fun WorkerScreen(
 }
 ```
 
-## ViewModel実装
+## ViewModelの実装
 
 ### WorkerViewModel
 
 ```kotlin
-@RequiresApi(Build.VERSION_CODES.S)
 class WorkerViewModel : ViewModel() {
-    
+
     private val _accumulatedMessages = MutableStateFlow("")
     val accumulatedMessages: StateFlow<String> = _accumulatedMessages.asStateFlow()
 
     fun observeSdkState(klleonOndeviceSdk: KlleonOndeviceSdk) {
         viewModelScope.launch {
             klleonOndeviceSdk.sdkState.collect { state ->
-                state.let {
-                    val messageToAdd = try {
-                        val json = JSONObject(state)
-                        json.getString("message")
-                    } catch (t: Throwable) {
-                        state.toString()
+                val messageToAdd = try {
+                    val json = JSONObject(state)
+                    val chatType = json.optString("chat_type", "")
+                    val message = json.getString("message")
+
+                    when (chatType) {
+                        "STT_RESULT" -> "[STT] $message"
+                        "STT_PARTIAL" -> "[STT 中間] $message"
+                        "RESPONSE" -> "[アバター] $message"
+                        else -> message
                     }
-                    
-                    // 蓄積されたメッセージに新しいメッセージを追加
-                    if (messageToAdd.isNotBlank()) {
-                        val currentMessages = _accumulatedMessages.value
-                        val newMessages = if (currentMessages.isEmpty()) {
-                            messageToAdd
-                        } else {
-                            "$currentMessages\n$messageToAdd"
-                        }
-                        _accumulatedMessages.value = newMessages
+                } catch (t: Throwable) {
+                    state.toString()
+                }
+
+                if (messageToAdd.isNotBlank()) {
+                    val currentMessages = _accumulatedMessages.value
+                    _accumulatedMessages.value = if (currentMessages.isEmpty()) {
+                        messageToAdd
+                    } else {
+                        "$currentMessages\n$messageToAdd"
                     }
                 }
             }
         }
     }
-    
+
     fun clearMessages() {
         _accumulatedMessages.value = ""
     }
@@ -266,16 +280,15 @@ class WorkerViewModel : ViewModel() {
 
 ## 最小統合例
 
-シンプルな実装のために:
+シンプルな実装のために：
 
 ```kotlin
-@RequiresApi(Build.VERSION_CODES.S)
 @Composable
 fun SimpleSDKIntegration() {
     val context = LocalContext.current
     val klleonOndeviceSdk = remember { KlleonOndeviceSdk() }
     var sdkView by remember { mutableStateOf<KlleonSdkView?>(null) }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -283,8 +296,8 @@ fun SimpleSDKIntegration() {
     ) {
         // SDKビュー
         AndroidView(
-            factory = { context ->
-                KlleonSdkView(context).also { view ->
+            factory = { ctx ->
+                KlleonSdkView(ctx).also { view ->
                     sdkView = view
                 }
             },
@@ -292,20 +305,17 @@ fun SimpleSDKIntegration() {
                 .fillMaxWidth()
                 .weight(1f)
         )
-        
+
         // 再生ボタン
         Button(
             onClick = {
                 sdkView?.let { view ->
-                    val videoPath = File(context.cacheDir, "loop_sample.mp4").absolutePath
-                    val facialPath = File(context.cacheDir, "loop_sample.npz").absolutePath
-                    
                     klleonOndeviceSdk.play(
-                        context as ComponentActivity,
-                        view,
-                        videoPath,
-                        facialPath,
-                        "SDK key"
+                        context = context,
+                        klleonSdkViewInstance = view,
+                        sdkKey = "YOUR_SDK_KEY",
+                        characterId = "character_001",
+                        language = "ko"
                     )
                 }
             },
@@ -324,73 +334,21 @@ fun SimpleSDKIntegration() {
 @Composable
 fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
     var currentState by remember { mutableStateOf("") }
-    
+
     LaunchedEffect(klleonOndeviceSdk) {
         klleonOndeviceSdk.sdkState.collect { state ->
             currentState = try {
                 val json = JSONObject(state)
-                "状態: ${json.getString("message")}"
+                "状態: ${json.optString("chat_type")} - ${json.getString("message")}"
             } catch (e: Exception) {
-                "生の状態: $state"
+                "未加工状態: $state"
             }
         }
     }
-    
+
     Text(
         text = currentState,
         modifier = Modifier.padding(16.dp)
     )
-}
-```
-
-## エラー処理パターン
-
-```kotlin
-class SDKManager {
-    private val klleonOndeviceSdk = KlleonOndeviceSdk()
-    
-    fun safePlay(
-        activity: ComponentActivity,
-        view: KlleonSdkView,
-        videoPath: String,
-        facialPath: String,
-        sdkKey: String
-    ): Boolean {
-        return try {
-            // 入力検証
-            if (!File(videoPath).exists()) {
-                Log.e("SDKManager", "ビデオファイルが見つかりません: $videoPath")
-                return false
-            }
-            
-            if (!File(facialPath).exists()) {
-                Log.e("SDKManager", "顔ファイルが見つかりません: $facialPath")
-                return false
-            }
-            
-            klleonOndeviceSdk.play(activity, view, videoPath, facialPath, sdkKey)
-            Log.d("SDKManager", "SDK再生が正常に開始されました")
-            true
-        } catch (e: Exception) {
-            Log.e("SDKManager", "SDK再生開始に失敗しました", e)
-            false
-        }
-    }
-    
-    fun safeSendMessage(message: String): Boolean {
-        return try {
-            if (message.isBlank()) {
-                Log.w("SDKManager", "空のメッセージ送信を試行")
-                return false
-            }
-            
-            klleonOndeviceSdk.sendMessage(message)
-            Log.d("SDKManager", "メッセージが送信されました: $message")
-            true
-        } catch (e: Exception) {
-            Log.e("SDKManager", "メッセージ送信に失敗しました", e)
-            false
-        }
-    }
 }
 ```

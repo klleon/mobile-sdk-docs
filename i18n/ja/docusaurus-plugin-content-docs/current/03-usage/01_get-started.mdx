@@ -2,31 +2,31 @@
 id: get-started
 sidebar_position: 3
 title: get-started
-sidebar_label: 始め方
+sidebar_label: はじめに
 ---
 
-# 始め方
+# はじめに
 
 ## 前提条件
 
-Klleon Chat SDKを使用する前に、以下の準備が必要です：
+Klleon Ondevice SDKを使用する前に、以下の準備が必要です：
 
-1.  **Kleon Studioアカウント**: SDK機能を使用するには[Kleon Studio](https://www.studio.klleon.io/)アカウントが必要です。アカウントがない場合は、まず登録してください。
-2.  **SDKキー発行**: ドメイン登録後、そのドメインで使用する固有の`sdk_key`が発行されます。このキーはSDK初期化に必要です。
+1.  **Kleon Studioアカウント**: SDK機能を使用するには[Kleon Studio](https://www.studio.klleon.io/)アカウントが必要です。アカウントをお持ちでない場合は、まずご登録ください。
+2.  **SDKキーの発行**: ドメイン登録後、該当ドメインで使用する固有の`sdk_key`が発行されます。このキーはSDKの初期化に必要です。
+3.  **キャラクターID**: 使用するAIアバターの`characterId`が必要です。
 
-## パーミッション
+## 権限
 
 ### AndroidManifest.xml
 
-`AndroidManifest.xml`に必要なパーミッションを追加してください：
+`AndroidManifest.xml`に必要な権限を追加してください：
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
-### コードでのパーミッション処理
+### コードでの権限処理
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -60,31 +60,32 @@ class MainActivity : ComponentActivity() {
         val deniedPermissions = permissions.filter { !it.value }.keys
 
         if (deniedPermissions.isEmpty()) {
-            Log.d("MainActivity", "すべてのパーミッションが許可されました")
+            Log.d("MainActivity", "すべての権限が許可されました")
             initializeApp()
         } else {
-            Log.w("MainActivity", "パーミッションが拒否されました: $deniedPermissions")
-            // 拒否されたパーミッションの処理
+            Log.w("MainActivity", "権限が拒否されました: $deniedPermissions")
+            // 拒否された権限の処理
         }
     }
 }
 ```
 
-## SDK初期化
+## SDKの初期化
 
 ### 基本設定
 
 ```kotlin
 import io.klleon.ondevice.KlleonOndeviceSdk
+import io.klleon.ondevice.ResourceManager
 import io.klleon.ondevice.render.KlleonSdkView
 
-@RequiresApi(Build.VERSION_CODES.S)
 class MainActivity : ComponentActivity() {
     private val klleonOndeviceSdk = KlleonOndeviceSdk()
-    
+    private val resourceManager = ResourceManager()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         if (checkPermissions()) {
             initializeApp()
         } else {
@@ -104,29 +105,45 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        copyAssetToCache("loop_sample.mp4")
-        copyAssetToCache("loop_sample.npz")
-    }
-
-    private fun copyAssetToCache(fileName: String) {
-        try {
-            val assetManager = assets
-            val inputStream = assetManager.open(fileName)
-            val cacheFile = File(cacheDir, fileName)
-
-            if (!cacheFile.exists()) {
-                val outputStream = FileOutputStream(cacheFile)
-                inputStream.copyTo(outputStream)
-                outputStream.close()
-                Log.d("MainActivity", "$fileNameをキャッシュにコピーしました: ${cacheFile.absolutePath}")
+        // リソースをキャッシュディレクトリにコピー
+        resourceManager.download(
+            context = this,
+            mp4FileName = "loop_sample.mp4",
+            npzFileName = "loop_sample.npz",
+            onSuccess = {
+                // リソース準備完了 — play()の呼び出しが可能です
+            },
+            onError = { error ->
+                Log.e("MainActivity", "リソース準備失敗", error)
             }
-            inputStream.close()
-        } catch (e: IOException) {
-            Log.e("MainActivity", "アセット$fileNameコピー中にエラーが発生しました", e)
-        }
+        )
     }
 }
 ```
+
+### SDKの開始 (play)
+
+```kotlin
+// SDKの開始
+klleonOndeviceSdk.play(
+    context = this,                    // Context
+    klleonSdkViewInstance = sdkView,   // KlleonSdkViewインスタンス
+    sdkKey = "YOUR_SDK_KEY",           // SDKキー
+    characterId = "character_001",     // キャラクターID
+    language = "ko",                   // 言語 (ko, en, ja など)
+    mmapEnabled = false                // オーディオMMAPポリシー（デフォルト: false）
+)
+```
+
+**パラメータ：**
+| パラメータ | 型 | 必須 | デフォルト | 説明 |
+|---------|------|------|--------|------|
+| `context` | Context | O | - | 現在のコンテキスト |
+| `klleonSdkViewInstance` | KlleonSdkView? | O | - | レンダリングビューインスタンス |
+| `sdkKey` | String | O | - | SDK認証キー |
+| `characterId` | String | O | - | AIアバターキャラクターID |
+| `language` | String | O | - | 言語コード |
+| `mmapEnabled` | Boolean | X | false | オーディオMMAP有効化（一部のUSBマイク非互換） |
 
 ## 次のステップ
 

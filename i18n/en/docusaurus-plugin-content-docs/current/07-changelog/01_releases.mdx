@@ -7,16 +7,132 @@ sidebar_label: Release Notes
 
 # Release Notes
 
-Version-specific changes for Klleon Ondevice SDK.
+Version-specific changelogs for the Klleon Ondevice SDK.
 
 ---
 
-## v0.2.3 (Latest)
+## v0.2.17 (Latest)
+
+**Release Date**: March 2026
+
+### Bug Fixes
+- Fixed audio input stream open failure on some devices
+- Added `mmapEnabled` parameter to the `play()` function
+
+---
+
+## v0.2.16
+
+### Improvements
+- Added STT partial result (`STT_PARTIAL`) support
+- Changed SDK distribution to bundled AAR (consolidated dependencies)
+
+---
+
+## v0.2.15
+
+### New Features
+- Voice recognition improvements
+- Automatic voice recognition pause during avatar speech
+
+---
+
+## v0.2.14
+
+### Improvements
+- Improved USB microphone compatibility (MMAP disabled by default)
+
+---
+
+## v0.2.13
+
+### Improvements
+- GPU compatibility fixes
+
+---
+
+## v0.2.12
+
+### New Features
+- Automatic silence detection
+- Low-latency audio input
+- Automatic USB microphone detection and switching
+
+---
+
+## v0.2.11
+
+### Bug Fixes
+- Fixed staircase artifact during screen rotation rendering
+
+---
+
+## v0.2.10
+
+### New Features
+- `sendStopSpeech()`: Stop avatar speech
+- `sendChangeLanguage()`: Change language during conversation
+
+---
+
+## v0.2.9
+
+### New Features
+- Multi-language support (Korean / Japanese / English)
+- Android TV UI improvements
+
+---
+
+## v0.2.8
+
+### New Features
+- Android TV 270-degree rotation support
+- Dynamic `characterId` passing per character
+
+---
+
+## v0.2.7
+
+### Improvements
+- Improved USB microphone device selection
+
+---
+
+## v0.2.6
+
+### New Features
+- Added `sendChangeLanguage()` API
+- Improved STT result handling
+
+---
+
+## v0.2.5
+
+### New Features
+- Low-latency microphone recording
+- Automatic USB microphone switching
+- Silence detection
+- WebSocket binary transmission
+
+---
+
+## v0.2.4
+
+### New Features
+- `play()` API change: Switched to `sdkKey`, `characterId`, `language` based approach
+
+### Bug Fixes
+- Sony TV / Android 8.1 compatibility fix
+- Improved long-running stability
+
+---
+
+## v0.2.3
 
 **Release Date**: December 2025
 
-### New Features
-- Added support - Improved device identification
+### Improvements
+- Security enhancements
 
 ---
 
@@ -24,15 +140,8 @@ Version-specific changes for Klleon Ondevice SDK.
 
 **Release Date**: November 2025
 
-### Bug Fixes
-- **[Critical]** Fixed memory leak
-
 ### Improvements
-- Updated build configuration
-- Improved logging utilities
-
-### Known Issues Resolved
-- Fixed memory increase issue during extended use
+- AI inference performance optimization
 
 ---
 
@@ -42,8 +151,6 @@ Version-specific changes for Klleon Ondevice SDK.
 
 ### Bug Fixes
 - Improved server connection stability
-
-### Improvements
 - Enhanced WebSocket reconnection logic
 
 ---
@@ -53,7 +160,8 @@ Version-specific changes for Klleon Ondevice SDK.
 **Release Date**: September 2025
 
 ### Improvements
-- Optimized video processing pipeline
+- Enhanced model security
+- Optimized video processing performance
 - Improved GPU acceleration performance
 
 ---
@@ -61,12 +169,9 @@ Version-specific changes for Klleon Ondevice SDK.
 ## v0.1.x (Initial Versions)
 
 ### Core Features
-- AI-based real-time video processing
+- AI-powered real-time video processing
 - Lip Sync functionality
 - WebSocket real-time communication
-- TensorFlow Lite inference engine
-- OpenCV image processing
-- PyTorch Mobile support
 
 ### Supported Environments
 - Android 8.0+ (API 26)
@@ -75,11 +180,11 @@ Version-specific changes for Klleon Ondevice SDK.
 
 ---
 
-## Support Versions
+## Supported Versions
 
-| Version | Status | End of Support |
-|---------|--------|----------------|
-| 0.2.x | ✅ Active Support | - |
-| 0.1.x | ⚠️ Maintenance Only | 2025 Q1 |
+| Version | Status | Notes |
+|---------|--------|-------|
+| 0.2.x | Actively supported | Latest |
+| 0.1.x | End of support | Ended Q1 2025 |
 
-Using the latest version is recommended.
+We recommend using the latest version.

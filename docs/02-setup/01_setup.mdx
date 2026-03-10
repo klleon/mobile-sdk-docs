@@ -5,45 +5,57 @@ title: setup
 sidebar_label: setup
 ---
 
-# 개요
-
-Klleon Ondevice SDK는 비디오 처리, 실시간 메시징, WebSocket 통신과 함께 온디바이스 AI 기능을 제공하는 Android SDK입니다. 이 문서는 샘플 Android 애플리케이션의 구현을 기반으로 작성되었습니다.
-
-
 # 설정
 
 ## 1) 요구사항
-- **SDK 버전**: 0.2.3
+
+- **SDK 버전**: 0.2.17
 - **최소 SDK**: 26 (Android 8.0)
 - **타겟 SDK**: 36
-- **NDK 버전**: 28.2.13676358
 - **지원 ABI**: arm64-v8a, armeabi-v7a
+
 ---
 
-### 1-1. 리소스
-SDK에는 다음 에셋 파일이 필요합니다:
-- 비디오 파일 (`loop_sample.mp4`)
-- 얼굴 처리 파일 (`loop_sample.npz`)
+### 리소스
 
-이 파일들은 `assets`(`src/main/assets`) 폴더에 배치되어야 하며 런타임에 캐시 디렉토리로 복사됩니다.
+SDK에는 비디오 파일(`.mp4`)과 얼굴 모델 파일(`.npz`)이 필요합니다.
+이 파일들은 `assets`(`src/main/assets`) 폴더에 배치한 뒤, `ResourceManager.download()`를 호출하여 캐시 디렉토리로 복사합니다.
 
-### 1-2. AAR 파일
+```kotlin
+import io.klleon.ondevice.ResourceManager
 
-- Kleon SDK AAR 파일을 `app/libs`에 복사합니다.
+val resourceManager = ResourceManager()
 
+resourceManager.download(
+    context = this,
+    mp4FileName = "loop_sample.mp4",
+    npzFileName = "loop_sample.npz",
+    onSuccess = {
+        // 리소스 준비 완료 — play() 호출 가능
+        // resourceManager.vpPath, resourceManager.fpPath 자동 설정됨
+    },
+    onError = { error ->
+        Log.e("Setup", "리소스 준비 실패", error)
+    }
+)
+```
+
+:::info
+`download()` 완료 후 `vpPath`(비디오 경로)와 `fpPath`(얼굴 모델 경로)가 자동 설정됩니다.
+`play()` 호출 전에 반드시 `download()`가 완료되어야 합니다.
+:::
 
 ## 2) Android 구성
 
 ```kotlin
 android {
     compileSdk = 36
-    ndkVersion = "28.2.13676358"
-    
+
     defaultConfig {
         minSdk = 26
         targetSdk = 36
     }
-    
+
     packaging {
         jniLibs {
             pickFirsts += "**/libc++_shared.so"
@@ -52,60 +64,43 @@ android {
 }
 ```
 
-## 3) Gradle 구성
-- 최상위 build.gradle(.kts) 파일에 New Relic 플러그인을 선언합니다
-   ```
-    plugins {
-        // for binary Gradle plugins that need to be resolved
-        id("com.newrelic.agent.android") version "7.6.1" apply false
-    }
-   ```
-- 앱 레벨 build.gradle(.kts)에서 플러그인을 명시적으로 적용합니다
-   ```
-      plugins {
-        id("com.newrelic.agent.android")
-      }
-   ```
-- 앱 레벨 디렉토리에 newrelic.properties 파일을 추가합니다
-    - [다운로드](https://drive.google.com/file/d/1w7efkin2__s76fI6a86gsEDbejsb-Ojy/view?usp=sharing)
+## 3) Gradle 의존성
 
+앱 레벨 `build.gradle.kts`에 다음 의존성을 추가합니다:
 
-- 앱 레벨 build.gradle(.kts)에 다음 내용을 추가합니다
-    ```
-      // Aar
-      implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+```kotlin
+dependencies {
+    // SDK
+    implementation("io.klleon:ondevice-sdk:0.2.17")
 
-      // Coroutines
-      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // Coroutines (SDK 필수)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+}
+```
 
-      // TensorFlow
-      implementation("org.tensorflow:tensorflow-lite:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-gpu:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.4")
-      implementation("org.tensorflow:tensorflow-lite-gpu-api:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
-      implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+:::info 번들 라이브러리
+SDK AAR에 다음 라이브러리들이 포함되어 있습니다:
+- OkHttp, Okio, Retrofit
+- Jackson (Core, Module)
+- TensorFlow Lite
+- OpenCV
+- PyTorch Mobile
+- Oboe
+- ONNX Runtime
+- Agora RTC
 
-      // OpenCV
-      implementation("org.opencv:opencv:4.11.0")
+앱에서 OkHttp 또는 Okio를 사용하는 라이브러리(예: Coil)가 있으면 버전 충돌이 발생할 수 있습니다. 이 경우 `RuntimeClasspath`에서 해당 그룹을 exclude하세요:
+```kotlin
+configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true) }.configureEach {
+    exclude(group = "com.squareup.okhttp3")
+    exclude(group = "com.squareup.okio")
+}
+```
+:::
 
-      // PyTorch
-      implementation("com.facebook.soloader:nativeloader:0.12.1")
-      implementation("org.pytorch:pytorch_android_lite:2.1.0")
+## 4) ProGuard / R8
 
-      // WebSocket
-      implementation("com.squareup.okhttp3:okhttp:4.12.0")
+SDK AAR에 필요한 ProGuard/R8 규칙이 포함되어 있어 **별도의 설정이 필요 없습니다.**
 
-      // Jackson
-      implementation("com.fasterxml.jackson.core:jackson-databind:2.15.0")
-      implementation("com.fasterxml.jackson.core:jackson-annotations:2.15.0")
-      implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.0")
-  
-      // Newrelic
-      implementation("com.newrelic.agent.android:android-agent:7.6.1")
-    ```
-
-{/* ## 샘플 앱 다운로드
-- [다운로드] */}
+`UnsatisfiedLinkError` 발생 시 위 Android 구성의 `jniLibs.pickFirsts` 설정을 확인하세요.

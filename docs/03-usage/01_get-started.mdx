@@ -9,10 +9,11 @@ sidebar_label: 시작하기
 
 ## 사전 요구사항
 
-Klleon Chat SDK를 사용하기 전에 다음 준비사항이 필요합니다:
+Klleon Ondevice SDK를 사용하기 전에 다음 준비사항이 필요합니다:
 
 1.  **Kleon Studio 계정**: SDK 기능을 사용하려면 [Kleon Studio](https://www.studio.klleon.io/) 계정이 필요합니다. 계정이 없다면 먼저 가입해 주세요.
 2.  **SDK 키 발급**: 도메인 등록 후, 해당 도메인에서 사용할 고유한 `sdk_key`가 발급됩니다. 이 키는 SDK 초기화에 필요합니다.
+3.  **캐릭터 ID**: 사용할 AI 아바타의 `characterId`가 필요합니다.
 
 ## 권한
 
@@ -23,7 +24,6 @@ Klleon Chat SDK를 사용하기 전에 다음 준비사항이 필요합니다:
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
 ### 코드에서 권한 처리
@@ -76,15 +76,16 @@ class MainActivity : ComponentActivity() {
 
 ```kotlin
 import io.klleon.ondevice.KlleonOndeviceSdk
+import io.klleon.ondevice.ResourceManager
 import io.klleon.ondevice.render.KlleonSdkView
 
-@RequiresApi(Build.VERSION_CODES.S)
 class MainActivity : ComponentActivity() {
     private val klleonOndeviceSdk = KlleonOndeviceSdk()
-    
+    private val resourceManager = ResourceManager()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         if (checkPermissions()) {
             initializeApp()
         } else {
@@ -104,29 +105,45 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        copyAssetToCache("loop_sample.mp4")
-        copyAssetToCache("loop_sample.npz")
-    }
-
-    private fun copyAssetToCache(fileName: String) {
-        try {
-            val assetManager = assets
-            val inputStream = assetManager.open(fileName)
-            val cacheFile = File(cacheDir, fileName)
-
-            if (!cacheFile.exists()) {
-                val outputStream = FileOutputStream(cacheFile)
-                inputStream.copyTo(outputStream)
-                outputStream.close()
-                Log.d("MainActivity", "$fileName을 캐시로 복사함: ${cacheFile.absolutePath}")
+        // 리소스를 캐시 디렉토리로 복사
+        resourceManager.download(
+            context = this,
+            mp4FileName = "loop_sample.mp4",
+            npzFileName = "loop_sample.npz",
+            onSuccess = {
+                // 리소스 준비 완료 — play() 호출 가능
+            },
+            onError = { error ->
+                Log.e("MainActivity", "리소스 준비 실패", error)
             }
-            inputStream.close()
-        } catch (e: IOException) {
-            Log.e("MainActivity", "에셋 $fileName 복사 중 오류", e)
-        }
+        )
     }
 }
 ```
+
+### SDK 시작 (play)
+
+```kotlin
+// SDK 시작
+klleonOndeviceSdk.play(
+    context = this,                    // Context
+    klleonSdkViewInstance = sdkView,   // KlleonSdkView 인스턴스
+    sdkKey = "YOUR_SDK_KEY",           // SDK 키
+    characterId = "character_001",     // 캐릭터 ID
+    language = "ko",                   // 언어 (ko, en, ja 등)
+    mmapEnabled = false                // 오디오 MMAP 정책 (기본: false)
+)
+```
+
+**매개변수:**
+| 매개변수 | 타입 | 필수 | 기본값 | 설명 |
+|---------|------|------|--------|------|
+| `context` | Context | O | - | 현재 컨텍스트 |
+| `klleonSdkViewInstance` | KlleonSdkView? | O | - | 렌더링 뷰 인스턴스 |
+| `sdkKey` | String | O | - | SDK 인증 키 |
+| `characterId` | String | O | - | AI 아바타 캐릭터 ID |
+| `language` | String | O | - | 언어 코드 |
+| `mmapEnabled` | Boolean | X | false | 오디오 MMAP 활성화 (일부 USB 마이크 비호환) |
 
 ## 다음 단계
 

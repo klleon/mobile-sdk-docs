@@ -94,24 +94,7 @@ const config: Config = {
               padding: 0;
               box-shadow: none;
             ">
-              0.2.3
-              <span style="
-                display: inline-block;
-                margin-left: 4px;
-                background: none;
-                color: #238636;
-                border: 1.5px solid #238636;
-                border-radius: 10px;
-                font-size: 0.5em;
-                font-weight: 700;
-                padding: 3px 5px;
-                letter-spacing: 0.5px;
-                line-height: 1.2;
-                box-shadow: none;
-                vertical-align: middle;
-              ">
-                Latest
-              </span>
+
             </span>
         `,
         },

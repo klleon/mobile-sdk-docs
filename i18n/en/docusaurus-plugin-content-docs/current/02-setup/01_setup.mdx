@@ -5,39 +5,51 @@ title: setup
 sidebar_label: setup
 ---
 
-# Overview
-
-Klleon Ondevice SDK is an Android SDK that provides on-device AI capabilities along with video processing, real-time messaging, and WebSocket communication. This documentation is based on the implementation of a sample Android application.
-
-
 # Setup
 
 ## 1) Requirements
-- **SDK Version**: 0.2.3
+
+- **SDK Version**: 0.2.17
 - **Minimum SDK**: 26 (Android 8.0)
 - **Target SDK**: 36
-- **NDK Version**: 28.2.13676358
-- **Supported ABIs**: arm64-v8a, armeabi-v7a
+- **Supported ABI**: arm64-v8a, armeabi-v7a
+
 ---
 
-### 1-1. Resources
-The SDK requires the following asset files:
-- Video file (`loop_sample.mp4`)
-- Face processing file (`loop_sample.npz`)
+### Resources
 
-These files should be placed in the `assets` (`src/main/assets`) folder and will be copied to the cache directory at runtime.
+The SDK requires a video file (`.mp4`) and a face model file (`.npz`).
+Place these files in the `assets` (`src/main/assets`) folder, then call `ResourceManager.download()` to copy them to the cache directory.
 
-### 1-2. AAR File
+```kotlin
+import io.klleon.ondevice.ResourceManager
 
-- Copy the Klleon SDK AAR file to `app/libs`.
+val resourceManager = ResourceManager()
 
+resourceManager.download(
+    context = this,
+    mp4FileName = "loop_sample.mp4",
+    npzFileName = "loop_sample.npz",
+    onSuccess = {
+        // Resources are ready — you can now call play()
+        // resourceManager.vpPath and resourceManager.fpPath are automatically set
+    },
+    onError = { error ->
+        Log.e("Setup", "Resource preparation failed", error)
+    }
+)
+```
+
+:::info
+After `download()` completes, `vpPath` (video path) and `fpPath` (face model path) are automatically set.
+`download()` must complete before calling `play()`.
+:::
 
 ## 2) Android Configuration
 
 ```kotlin
 android {
     compileSdk = 36
-    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         minSdk = 26
@@ -52,60 +64,43 @@ android {
 }
 ```
 
-## 3) Gradle Configuration
-- Declare the New Relic plugin in your top-level build.gradle(.kts) file
-   ```
-    plugins {
-        // for binary Gradle plugins that need to be resolved
-        id("com.newrelic.agent.android") version "7.6.1" apply false
-    }
-   ```
-- Apply the plugin explicitly in your app-level build.gradle(.kts)
-   ```
-      plugins {
-        id("com.newrelic.agent.android")
-      }
-   ```
-- Add a newrelic.properties file to your app-level directory
-    - [Download](https://drive.google.com/file/d/1w7efkin2__s76fI6a86gsEDbejsb-Ojy/view?usp=sharing)
+## 3) Gradle Dependencies
 
+Add the following dependencies to your app-level `build.gradle.kts`:
 
-- Add the following to your app-level build.gradle(.kts)
-    ```
-      // Aar
-      implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
+```kotlin
+dependencies {
+    // SDK
+    implementation("io.klleon:ondevice-sdk:0.2.17")
 
-      // Coroutines
-      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
-      implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    // Coroutines (required by SDK)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+}
+```
 
-      // TensorFlow
-      implementation("org.tensorflow:tensorflow-lite:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-gpu:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.4")
-      implementation("org.tensorflow:tensorflow-lite-gpu-api:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.15.0")
-      implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
-      implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+:::info Bundled Libraries
+The following libraries are bundled in the SDK AAR:
+- OkHttp, Okio, Retrofit
+- Jackson (Core, Module)
+- TensorFlow Lite
+- OpenCV
+- PyTorch Mobile
+- Oboe
+- ONNX Runtime
+- Agora RTC
 
-      // OpenCV
-      implementation("org.opencv:opencv:4.11.0")
+If your app uses libraries that depend on OkHttp or Okio (e.g., Coil), version conflicts may occur. In this case, exclude those groups from the `RuntimeClasspath`:
+```kotlin
+configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true) }.configureEach {
+    exclude(group = "com.squareup.okhttp3")
+    exclude(group = "com.squareup.okio")
+}
+```
+:::
 
-      // PyTorch
-      implementation("com.facebook.soloader:nativeloader:0.12.1")
-      implementation("org.pytorch:pytorch_android_lite:2.1.0")
+## 4) ProGuard / R8
 
-      // WebSocket
-      implementation("com.squareup.okhttp3:okhttp:4.12.0")
+The SDK AAR includes the necessary ProGuard/R8 rules, so **no additional configuration is required.**
 
-      // Jackson
-      implementation("com.fasterxml.jackson.core:jackson-databind:2.15.0")
-      implementation("com.fasterxml.jackson.core:jackson-annotations:2.15.0")
-      implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.15.0")
-
-      // Newrelic
-      implementation("com.newrelic.agent.android:android-agent:7.6.1")
-    ```
-
-{/* ## Sample App Download
-- [Download] */}
+If you encounter an `UnsatisfiedLinkError`, verify the `jniLibs.pickFirsts` setting in the Android configuration above.

@@ -1,6 +1,6 @@
 ---
 id: limitations
-sidebar_position: 2
+sidebar_position: 1
 title: 알려진 제한사항
 sidebar_label: 제한사항
 ---
@@ -22,10 +22,10 @@ SDK 사용 전 아래 요구사항과 제한사항을 확인하세요.
 
 | ABI | 지원 여부 | 비고 |
 |-----|----------|------|
-| `arm64-v8a` | ✅ 지원 | 대부분의 최신 디바이스 |
-| `armeabi-v7a` | ✅ 지원 | 구형 32비트 디바이스 |
-| `x86_64` | ❌ 미지원 | 에뮬레이터 |
-| `x86` | ❌ 미지원 | 에뮬레이터 |
+| `arm64-v8a` | 지원 | 대부분의 최신 디바이스 |
+| `armeabi-v7a` | 지원 | 구형 32비트 디바이스 |
+| `x86_64` | 미지원 | 에뮬레이터 |
+| `x86` | 미지원 | 에뮬레이터 |
 
 :::warning 에뮬레이터 주의사항
 x86/x86_64 에뮬레이터에서는 SDK가 동작하지 않습니다.
@@ -54,6 +54,17 @@ x86/x86_64 에뮬레이터에서는 SDK가 동작하지 않습니다.
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
+
+## 오디오 관련 제한사항
+
+### USB 마이크 호환성
+
+- **MMAP 정책**: `mmapEnabled` 기본값은 `false`입니다. MMAP 활성화 시 일부 USB 마이크에서 스트림 열기 실패가 발생할 수 있습니다.
+- **USB 장치 선택**: USB 마이크가 연결되면 자동으로 감지되어 선택됩니다.
+- **호환되지 않는 디바이스**: 일부 MediaTek 기반 TV에서 USB 복합 장치(예: DM30RGB)의 오디오 스트림 열기가 실패할 수 있습니다.
+
+### 에코 방지
+- 아바타 발화 중에는 음성 인식이 자동 차단됩니다.
 
 ## 알려진 이슈
 
@@ -86,12 +97,12 @@ override fun onLowMemory() {
 `KlleonOndeviceSdk` 인스턴스는 **앱당 하나만** 생성해야 합니다.
 
 ```kotlin
-// ✅ 올바른 사용법 - 단일 인스턴스
+// 올바른 사용법 - 단일 인스턴스
 class MyApplication : Application() {
     val klleonSdk = KlleonOndeviceSdk()
 }
 
-// ❌ 잘못된 사용법 - 여러 인스턴스
+// 잘못된 사용법 - 여러 인스턴스
 class MainActivity : Activity() {
     val sdk1 = KlleonOndeviceSdk() // 인스턴스 1
     val sdk2 = KlleonOndeviceSdk() // 인스턴스 2 - 충돌 발생!
@@ -123,6 +134,12 @@ class MainViewModel : ViewModel() {
 }
 ```
 
+### 5. Android TV 특이사항
+
+- TV 플랫폼에서 레이아웃 변경 시 자동 포커스가 첫 번째 focusable 요소에 부여되어 키보드가 자동 표시될 수 있습니다.
+- `focusProperties { canFocus = false }` 로 원천 차단 후, 클릭 시에만 활성화하세요.
+- MediaTek 기반 TV에서 일부 USB 오디오 장치 호환성 문제가 있을 수 있습니다.
+
 ## 성능 최적화 팁
 
 ### GPU 가속
@@ -139,6 +156,7 @@ adb logcat | grep "Klleon_"
 장시간 사용 시 배터리 소모가 클 수 있습니다:
 - 사용하지 않을 때 `finish()` 호출
 - 화면 꺼짐 시 처리 중지 권장
+- `pauseVideo()` / `resumeVideo()`로 필요 시 비디오 제어
 
 ## 지원 문의
 

@@ -6,10 +6,10 @@ sidebar_label: guides
 ---
 
 ### 1. Permission Management
-- Always check permissions before SDK initialization
+- Always check permissions before initializing the SDK
 - Handle permission denials with user-friendly messages
 - Provide clear rationale for required permissions
-- Test permission flows across different Android versions
+- Test the permission flow across different Android versions
 
 ```kotlin
 private fun showPermissionRationale() {
@@ -22,9 +22,9 @@ private fun showPermissionRationale() {
 ```
 
 ### 2. Resource Management
-- Call `finish()` to clean up resources when SDK usage is complete
-- Copy assets to cache directory for better performance
-- Handle file I/O operations with proper error handling
+- Use `ResourceManager.download()` to copy assets to the cache directory
+- Call `play()` after `download()` completes
+- Call `finish()` to release resources when done using the SDK
 - Clean up resources in `onDestroy()`
 
 ```kotlin
@@ -35,16 +35,16 @@ override fun onDestroy() {
 ```
 
 ### 3. State Observation
-- Use ViewModel to observe SDK state changes
-- Collect state updates in coroutine scope
+- Use a ViewModel to observe SDK state changes
+- Collect state updates within a coroutine scope
 - Safely parse JSON responses with try-catch blocks
-- Handle state updates on main thread for UI changes
+- Handle state updates on the main thread for UI changes
 
 ### 4. Error Handling
-- Wrap SDK method calls with try-catch blocks
+- Wrap SDK method calls in try-catch blocks
 - Log errors appropriately for debugging
 - Provide user feedback for failed operations
-- Validate inputs before SDK method calls
+- Validate inputs before calling SDK methods
 
 ```kotlin
 fun safeOperation() {
@@ -52,16 +52,61 @@ fun safeOperation() {
         klleonOndeviceSdk.sendMessage(message)
     } catch (e: Exception) {
         Log.e("SDK", "Operation failed", e)
-        showUserError("Operation failed. Please try again.")
+        showUserError("The operation failed. Please try again.")
     }
 }
 ```
 
 ### 5. UI Integration
 - Use `AndroidView` in Compose to integrate `KlleonSdkView`
-- Ensure the view is properly initialized before SDK method calls
-- Handle view lifecycle appropriately
-- Test UI across different screen sizes and orientations
+- Ensure the view is properly initialized before calling SDK methods
+- Handle the view lifecycle appropriately
+- Test the UI across different screen sizes and orientations
+
+### 6. Voice Recognition Integration
+
+Voice recognition starts on button tap and automatically ends when silence is detected.
+
+```kotlin
+// Start voice recognition
+val success = klleonOndeviceSdk.startVoiceRecognition()
+
+// Receive results via sdkState Flow
+klleonOndeviceSdk.sdkState.collect { state ->
+    val json = JSONObject(state)
+    when (json.optString("chat_type")) {
+        "STT_RESULT" -> {
+            // Final voice recognition result
+            val text = json.getString("message")
+        }
+        "STT_PARTIAL" -> {
+            // Partial result (for real-time display)
+            val partialText = json.getString("message")
+        }
+    }
+}
+```
+
+### 7. Speech Interruption
+
+You can immediately stop the avatar while it is speaking.
+
+```kotlin
+klleonOndeviceSdk.sendStopSpeech()
+```
+
+### 8. Android TV Support
+
+Consider the following when targeting TV devices:
+
+- **Screen Rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
+- **Remote Control Key Mapping**: Map directional keys to match the rotated screen
+- **Focus Management**: Prevent automatic keyboard display caused by TV auto-focus
+
+```kotlin
+// Screen rotation for TV
+klleonSdkView.setRenderRotation(270)
+```
 
 ## Performance Optimization
 
@@ -87,28 +132,43 @@ viewModelScope.launch {
 ### Common Issues
 
 #### 1. Permission Denied
-**Problem**: `RECORD_AUDIO` permission not granted
+**Problem**: `RECORD_AUDIO` permission is not granted
 
-**Solution**: 
-- Check if permission is declared in `AndroidManifest.xml`
-- Verify permission handling logic
+**Solution**:
+- Verify that the permission is declared in `AndroidManifest.xml`
+- Check the permission handling logic
 - Test across different Android versions
 
 #### 2. SDK State Not Updating
-**Problem**: State observation not working
+**Problem**: State observation is not working
 
 **Solution**:
-- Check if state observation is properly set up in ViewModel
-- Verify coroutine scope is active
-- Ensure state collection has started
+- Verify that state observation is properly set up in the ViewModel
+- Check that the coroutine scope is active
+- Confirm that state collection has started
 
 #### 3. View Not Ready
-**Problem**: `KlleonSdkView` not initialized before `play()` call
+**Problem**: `KlleonSdkView` is not initialized before calling `play()`
 
 **Solution**:
-- Check view initialization in `AndroidView` factory
-- Enable buttons only when view is ready
-- Add null checks before SDK method calls
+- Verify view initialization in the `AndroidView` factory
+- Enable buttons only when the view is ready
+- Add null checks before calling SDK methods
+
+#### 4. USB Microphone Not Recognized
+**Problem**: USB microphone is connected but not used by the SDK
+
+**Solution**:
+- Check the connection status with `hasUsbMicrophone()`
+- Verify `mmapEnabled = false` (default) -- enabling MMAP is incompatible with some USB microphones
+- Check device logs: `adb logcat | grep "Ondevice_Mic"`
+
+#### 5. Voice Recognition Not Working During Avatar Speech
+**Problem**: Voice recognition does not start while the avatar is speaking
+
+**Solution**:
+- Voice recognition is blocked during avatar speech to prevent echo
+- Stop the avatar's speech first with `sendStopSpeech()`, or try again after speech finishes
 
 ### Debugging Tips
 
@@ -117,66 +177,30 @@ viewModelScope.launch {
 // Monitor all state changes
 klleonOndeviceSdk.sdkState.collect { state ->
     Log.d("SDKState", "State update: $state")
-    
+
     try {
         val json = JSONObject(state)
         val message = json.getString("message")
-        val type = json.optString("type", "unknown")
-        Log.d("SDKState", "Parsed - Type: $type, Message: $message")
+        val chatType = json.optString("chat_type", "unknown")
+        Log.d("SDKState", "Parsed - chatType: $chatType, message: $message")
     } catch (e: Exception) {
         Log.w("SDKState", "Failed to parse state JSON", e)
     }
 }
 ```
 
-## Testing Strategy
-
-### Unit Testing
+#### Recorder State Monitoring
 ```kotlin
-@Test
-fun testAssetCopying() {
-    // Test asset file copying logic
-    val testFile = File(context.cacheDir, "test.mp4")
-    copyAssetToCache("test.mp4")
-    assertTrue("Asset file should exist", testFile.exists())
-}
-```
-
-### Integration Testing
-```kotlin
-@Test
-fun testSDKInitialization() {
-    val sdk = KlleonOndeviceSdk()
-    assertNotNull("SDK should be initialized", sdk)
-    
-    // Test state observation
-    val states = mutableListOf<String>()
-    sdk.sdkState.take(1).collect { state ->
-        states.add(state)
-    }
-    
-    assertTrue("Should receive initial state", states.isNotEmpty())
-}
-```
-
-### UI Testing
-```kotlin
-@Test
-fun testPlayButtonEnabled() {
-    composeTestRule.setContent {
-        WorkerScreen(klleonOndeviceSdk = mockSdk)
-    }
-    
-    // Initially disabled
-    composeTestRule
-        .onNodeWithText("Play")
-        .assertIsNotEnabled()
-    
-    // Should be enabled after view initialization
-    composeTestRule.waitUntil {
-        composeTestRule
-            .onNodeWithText("Play")
-            .isEnabled()
+// Monitor recorder state changes
+klleonOndeviceSdk.recorderState.collect { state ->
+    when (state) {
+        is OboeRecorderState.Recording -> {
+            Log.d("Recorder", "Recording - device: ${state.deviceName}")
+        }
+        is OboeRecorderState.Error -> {
+            Log.e("Recorder", "Error: ${state.message}")
+        }
+        else -> Log.d("Recorder", "State: $state")
     }
 }
 ```
