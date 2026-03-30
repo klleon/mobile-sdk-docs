@@ -38,7 +38,7 @@ fun SdkViewComponent() {
 
 #### setRenderRotation()
 
-Used when screen rotation is needed, such as on TVs.
+Used when screen rotation is needed, such as on TV devices.
 
 ```kotlin
 klleonSdkView.setRenderRotation(270) // Supports 0, 90, 270 degrees
@@ -57,21 +57,19 @@ klleonOndeviceSdk.play(
     context: Context,
     klleonSdkViewInstance: KlleonSdkView?,
     sdkKey: String,
-    characterId: String,
-    language: String,
-    mmapEnabled: Boolean = false
+    avatarId: String,
+    language: String
 )
 ```
 
 **Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `context` | Context | Yes | - | Current context |
-| `klleonSdkViewInstance` | KlleonSdkView? | Yes | - | Rendering view |
-| `sdkKey` | String | Yes | - | SDK authentication key |
-| `characterId` | String | Yes | - | AI avatar character ID |
-| `language` | String | Yes | - | Language code (ko, en, ja, etc.) |
-| `mmapEnabled` | Boolean | No | false | Enable audio MMAP |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `context` | Context | Yes | Current context |
+| `klleonSdkViewInstance` | KlleonSdkView? | Yes | Rendering view |
+| `sdkKey` | String | Yes | SDK authentication key |
+| `avatarId` | String | Yes | AI avatar ID |
+| `language` | String | Yes | Language code (`ko_kr`, `en_us`, `ja_jp`) |
 
 **Example:**
 ```kotlin
@@ -80,15 +78,15 @@ workerView?.let { view ->
         context = this,
         klleonSdkViewInstance = view,
         sdkKey = "YOUR_SDK_KEY",
-        characterId = "character_001",
-        language = "ko"
+        avatarId = "character_001",
+        language = "ko_kr"
     )
 }
 ```
 
 ### connect()
 
-Performs WebSocket reconnection.
+Performs a WebSocket reconnection.
 
 ```kotlin
 klleonOndeviceSdk.connect()
@@ -104,7 +102,7 @@ klleonOndeviceSdk.finish()
 
 ---
 
-## Messaging API
+## Message API
 
 ### sendMessage()
 
@@ -121,7 +119,7 @@ klleonOndeviceSdk.sendMessage("Hello")
 
 ### sendMessageEcho()
 
-Sends an echo message (for testing purposes).
+Plays the input text directly as TTS + lip-sync (LLM bypass). Useful for fixed announcement messages.
 
 ```kotlin
 klleonOndeviceSdk.sendMessageEcho(text: String)
@@ -183,7 +181,7 @@ val isPaused: Boolean = klleonOndeviceSdk.isVideoPaused()
 
 ### startVoiceRecognition()
 
-Starts voice recognition. Begins microphone recording and sends a START_VOICE signal via WebSocket. When silence is detected, recording automatically stops and an END_VOICE signal is sent.
+Starts voice recognition. Begins microphone recording and sends a START_VOICE signal via WebSocket. When silence is detected, recording is automatically stopped and an END_VOICE signal is sent.
 
 ```kotlin
 fun startVoiceRecognition(
@@ -203,7 +201,7 @@ val success = klleonOndeviceSdk.startVoiceRecognition()
 
 // Start with custom settings
 val customConfig = SilenceDetectionConfig.default().copy(
-    silenceTimeoutMs = 2000L  // 2-second silence detection timeout
+    silenceTimeoutMs = 2000L  // 2-second silence detection
 )
 val success = klleonOndeviceSdk.startVoiceRecognition(customConfig)
 ```
@@ -218,10 +216,40 @@ klleonOndeviceSdk.stopVoiceRecognition()
 
 ### isVoiceRecognizing()
 
-Checks whether voice recognition is in progress.
+Checks whether voice recognition is currently active.
 
 ```kotlin
 val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
+```
+
+### voiceRecognitionMode
+
+Sets the voice recognition mode. Must be set before calling `play()`.
+
+```kotlin
+klleonOndeviceSdk.voiceRecognitionMode = VoiceRecognitionMode.ALWAYS_ON
+```
+
+**Modes:**
+| Mode | Description |
+|------|-------------|
+| `DISCRETE` | Single-shot mode (default). Manually start/stop |
+| `ALWAYS_ON` | Always-on listening. Automatically starts after play(), maintains session |
+
+### startAlwaysOnListening()
+
+Manually starts ALWAYS_ON listening.
+
+```kotlin
+val success: Boolean = klleonOndeviceSdk.startAlwaysOnListening()
+```
+
+### isAutoListening()
+
+Checks whether ALWAYS_ON auto-listening is active.
+
+```kotlin
+val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
 ```
 
 ---
@@ -246,7 +274,7 @@ klleonOndeviceSdk.stopRecording()
 
 ### isRecording()
 
-Checks whether recording is in progress.
+Checks whether recording is currently active.
 
 ```kotlin
 val recording: Boolean = klleonOndeviceSdk.isRecording()
@@ -254,7 +282,7 @@ val recording: Boolean = klleonOndeviceSdk.isRecording()
 
 ### hasRecordAudioPermission()
 
-Checks whether the RECORD_AUDIO permission is granted.
+Checks whether RECORD_AUDIO permission is granted.
 
 ```kotlin
 val hasPermission: Boolean = klleonOndeviceSdk.hasRecordAudioPermission()
@@ -298,7 +326,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
         state.toString()
     }
 
-    // Handle state update
+    // Handle state updates
     updateUI(messageToAdd)
 }
 ```
@@ -316,21 +344,47 @@ klleonOndeviceSdk.sdkState.collect { state ->
 **Key chat_type Values:**
 | chat_type | Description |
 |-----------|-------------|
-| `WSS_OPEN` | WebSocket connection established |
+| `WSS_OPEN` | WebSocket connection successful |
 | `WSS_FAILURE` | WebSocket connection failed |
 | `WSS_CLOSING` | WebSocket connection closing |
 | `WSS_CLOSED` | WebSocket connection closed |
-| `WSS_RETRY_OVER` | Maximum retry attempts exceeded |
+| `WSS_RETRY_OVER` | Maximum retry limit exceeded |
 | `WSS_NOT_CONNECTED` | Not connected |
-| `ACTIVATE_VOICE` | Voice activated |
-| `RESPONSE` | Avatar response message |
-| `STT_RESULT` | Voice recognition result |
-| `STT_PARTIAL` | Voice recognition partial result |
+| `ACTIVATE_VOICE` | Ready to receive voice input |
+| `TEXT` | Text response received from server |
+| `RESPONSE_IS_ENDED` | Server response stream ended |
+| `TTS_START` | TTS audio playback started |
+| `TTS_END` | TTS audio playback completed (used for speech end detection) |
+| `SHOW_AVATAR` | Avatar display ready |
+| `USER_SPEECH_STARTED` | User speech start detected |
+| `USER_SPEECH_STOPPED` | User speech end detected |
+| `PREPARING_RESPONSE` | Server response in preparation |
+| `STT_RESULT` | Final voice recognition result |
+| `STT_PARTIAL` | Interim voice recognition result |
 | `STT_ERROR` | Voice recognition error |
+| `STT_STATUS` | Voice recognition status change notification (preparing/recovering/ready) |
+| `WORKER_DISCONNECTED` | Socket connection terminated |
+| `SPEECH_START` | Avatar speech started |
+| `SPEECH_END` | Avatar speech ended |
+| `STOP_RESPONSE_MESSAGE` | Current avatar speech interrupted |
+
+#### STT_STATUS Details
+
+Notifies temporary status changes in the voice recognition session. Occurs with STT providers that use token-based authentication (such as Azure).
+
+| Status | message Value | Meaning | Trigger |
+|--------|---------------|---------|---------|
+| `Preparing` | `Preparing voice recognition` | Recognition start delayed due to pending token | When voice recognition starts without a received token |
+| `Recovering` | `Reconnecting voice recognition` | Waiting for token reissue due to authentication failure | When authentication token expires during recognition |
+| `Ready` | `Voice recognition ready` | Recovery complete, voice recognition resumed | When recognition restarts after token reissue |
+
+:::tip
+`STT_STATUS` is a temporary status notification. When receiving `Preparing voice recognition` or `Reconnecting voice recognition`, display a toast or similar notification to the user. Dismiss it naturally when `Voice recognition ready` is received.
+:::
 
 ### recorderState
 
-A StateFlow for subscribing to recorder state changes in real time.
+A StateFlow for real-time subscription to recorder state changes.
 
 ```kotlin
 klleonOndeviceSdk.recorderState: StateFlow<OboeRecorderState>
@@ -356,10 +410,10 @@ klleonOndeviceSdk.silenceDetectionResult: SharedFlow<SilenceDetectionResult>?
 **Result Types:**
 | Type | Description |
 |------|-------------|
-| `SpeechTimeout` | Voice input wait timeout exceeded |
+| `SpeechTimeout` | Voice input wait time exceeded |
 | `SilenceDetected` | Silence detected after speech (recording auto-stopped) |
 | `MaxTimeReached` | Maximum recording time exceeded |
-| `ManualStop` | Manual stop |
+| `ManualStop` | Manually stopped |
 | `Error` | Error |
 
 ---
@@ -375,10 +429,10 @@ import io.klleon.ondevice.audio.oboe.SilenceDetectionConfig
 **Fields:**
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `silenceThreshold` | Float | 0.02 | Level threshold for silence detection |
-| `speechThreshold` | Float | 0.05 | Level threshold for speech detection |
-| `speechTimeoutMs` | Long | 5000 | Voice input wait timeout (ms) |
-| `silenceTimeoutMs` | Long | 2000 | Silence detection timeout after speech (ms) |
+| `silenceThreshold` | Float | 0.02 | Silence level threshold |
+| `speechThreshold` | Float | 0.05 | Speech level threshold |
+| `speechTimeoutMs` | Long | 5000 | Voice input wait time (ms) |
+| `silenceTimeoutMs` | Long | 2000 | Silence detection time after speech (ms) |
 | `maxRecordingTimeMs` | Long | 60000 | Maximum recording time (ms, 0=unlimited) |
 | `preBufferMs` | Int | 300 | Audio preserved before speech start (ms) |
 | `preBufferDelayMs` | Long | 300 | Pre-buffer flush delay (ms) |
@@ -389,11 +443,11 @@ import io.klleon.ondevice.audio.oboe.SilenceDetectionConfig
 | `SilenceDetectionConfig.default()` | Default settings |
 | `SilenceDetectionConfig.fast()` | Fast response (speechTimeout 3s, silenceTimeout 1.5s) |
 | `SilenceDetectionConfig.longSpeech()` | Long speech (speechTimeout 7s, silenceTimeout 3s, maxRecording 120s) |
-| `SilenceDetectionConfig.noisyEnvironment()` | Noisy environment (higher thresholds: silence 0.05, speech 0.10) |
+| `SilenceDetectionConfig.noisyEnvironment()` | Noisy environment (elevated thresholds: silence 0.05, speech 0.10) |
 
 **Example:**
 ```kotlin
-// Using presets
+// Using a preset
 klleonOndeviceSdk.startVoiceRecognition(SilenceDetectionConfig.fast())
 
 // Custom configuration

@@ -11,9 +11,67 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ---
 
-## v0.2.17 (Latest)
+## v0.3.4 (Latest)
 
 **릴리스일**: 2026년 3월
+
+### 변경사항
+- StyleEncoder 런타임 추론 비활성화 (.style 사전 로딩 시 모델 로드 스킵)
+- SdkInitializer.validate() 호출 복원
+- 샘플 앱 리소스 다운로드 흐름 개선
+
+---
+
+## v0.3.3
+
+**릴리스일**: 2026년 3월
+
+### 변경사항
+- 사전 계산된 .style 파일 로딩 (StyleFileLoader 추가)
+- style_encoder_float32.bin 에셋 삭제 (~35MB AAR 크기 감소)
+- play() 파라미터 내부 변수화 (ttsModelUse, mmapEnabled, tokenServerUrl 제거)
+- WebSocket 음성 신호 추가 (SPEECH_START, SPEECH_END, STOP_RESPONSE_MESSAGE)
+- ResourceManager .style 파일 다운로드 지원
+
+---
+
+## v0.3.2
+
+**릴리스일**: 2026년 3월
+
+### 변경사항
+- Oboe 입력 포맷 Float → I16 변경 (USB 마이크 호환성 확보)
+- I16 → Float32 런타임 변환 로직 추가
+- publish.sh STT 프로바이더별 배포 지원
+
+---
+
+## v0.3.1
+
+**릴리스일**: 2026년 3월
+
+### 변경사항
+- ALWAYS_ON 음성 모드 추가 (play() 후 자동 시작, 세션 유지)
+- CONTINUOUS 모드 제거 및 dead code 정리
+- Azure STT 불필요한 START_VOICE/END_VOICE 신호 제거
+
+---
+
+## v0.2.18
+
+**릴리스일**: 2026년 3월
+
+### 변경사항
+- Azure STT 토큰 서버 연동
+
+---
+
+## v0.2.17
+
+**릴리스일**: 2026년 3월
+
+### 새로운 기능
+- 음성 인식 상태 알림 (`STT_STATUS`) 추가 — 토큰 대기/재연결/복구 완료 상태를 앱에 통지
 
 ### 버그 수정
 - 일부 디바이스에서 오디오 입력 스트림 열기 실패 수정
@@ -184,7 +242,8 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 | 버전 | 상태 | 비고 |
 |------|------|------|
-| 0.2.x | 활성 지원 | 최신 |
+| 0.3.x | 활성 지원 | 최신 |
+| 0.2.x | 활성 지원 | |
 | 0.1.x | 지원 종료 | 2025년 Q1 종료 |
 
 최신 버전 사용을 권장합니다.

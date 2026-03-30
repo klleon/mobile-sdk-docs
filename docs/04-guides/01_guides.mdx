@@ -83,6 +83,11 @@ klleonOndeviceSdk.sdkState.collect { state ->
             // 중간 결과 (실시간 표시용)
             val partialText = json.getString("message")
         }
+        "STT_STATUS" -> {
+            // 음성 인식 상태 변화 (준비 중/재연결 중/준비 완료)
+            val statusMessage = json.getString("message")
+            showToast(statusMessage)
+        }
     }
 }
 ```
@@ -160,7 +165,7 @@ viewModelScope.launch {
 
 **해결책**:
 - `hasUsbMicrophone()`으로 연결 상태 확인
-- `mmapEnabled = false` (기본값) 확인 — MMAP 활성화 시 일부 USB 마이크 비호환
+- MMAP 정책은 SDK 내부에서 관리됩니다 (기본: 비활성화). 일부 USB 마이크는 MMAP 비호환
 - 디바이스 로그 확인: `adb logcat | grep "Ondevice_Mic"`
 
 #### 5. 아바타 발화 중 음성 인식 안 됨

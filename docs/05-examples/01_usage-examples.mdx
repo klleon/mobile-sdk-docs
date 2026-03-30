@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity() {
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
+            styleFileName = "loop_sample.style",
             onSuccess = {
                 // 리소스 준비 완료 — play() 호출 가능
             },
@@ -149,8 +150,8 @@ fun WorkerScreen(
                                 context = context,
                                 klleonSdkViewInstance = view,
                                 sdkKey = "YOUR_SDK_KEY",
-                                characterId = "character_001",
-                                language = "ko"
+                                avatarId = "character_001",
+                                language = "ko_kr"
                             )
                         }
                     },
@@ -314,7 +315,7 @@ fun SimpleSDKIntegration() {
                         context = context,
                         klleonSdkViewInstance = view,
                         sdkKey = "YOUR_SDK_KEY",
-                        characterId = "character_001",
+                        avatarId = "character_001",
                         language = "ko"
                     )
                 }

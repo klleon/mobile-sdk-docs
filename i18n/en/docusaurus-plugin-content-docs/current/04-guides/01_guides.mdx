@@ -6,16 +6,16 @@ sidebar_label: guides
 ---
 
 ### 1. Permission Management
-- Always check permissions before initializing the SDK
+- Always check permissions before SDK initialization
 - Handle permission denials with user-friendly messages
 - Provide clear rationale for required permissions
-- Test the permission flow across different Android versions
+- Test permission flows across different Android versions
 
 ```kotlin
 private fun showPermissionRationale() {
     Toast.makeText(
         this,
-        "Audio permission is required for this app to function properly.",
+        "Audio permission is required for this app to work properly.",
         Toast.LENGTH_LONG
     ).show()
 }
@@ -24,7 +24,7 @@ private fun showPermissionRationale() {
 ### 2. Resource Management
 - Use `ResourceManager.download()` to copy assets to the cache directory
 - Call `play()` after `download()` completes
-- Call `finish()` to release resources when done using the SDK
+- Call `finish()` to release resources when done with the SDK
 - Clean up resources in `onDestroy()`
 
 ```kotlin
@@ -38,7 +38,7 @@ override fun onDestroy() {
 - Use a ViewModel to observe SDK state changes
 - Collect state updates within a coroutine scope
 - Safely parse JSON responses with try-catch blocks
-- Handle state updates on the main thread for UI changes
+- Process state updates on the main thread for UI changes
 
 ### 4. Error Handling
 - Wrap SDK method calls in try-catch blocks
@@ -60,7 +60,7 @@ fun safeOperation() {
 ### 5. UI Integration
 - Use `AndroidView` in Compose to integrate `KlleonSdkView`
 - Ensure the view is properly initialized before calling SDK methods
-- Handle the view lifecycle appropriately
+- Handle view lifecycle appropriately
 - Test the UI across different screen sizes and orientations
 
 ### 6. Voice Recognition Integration
@@ -71,7 +71,7 @@ Voice recognition starts on button tap and automatically ends when silence is de
 // Start voice recognition
 val success = klleonOndeviceSdk.startVoiceRecognition()
 
-// Receive results via sdkState Flow
+// Receive results via the sdkState Flow
 klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
@@ -80,8 +80,13 @@ klleonOndeviceSdk.sdkState.collect { state ->
             val text = json.getString("message")
         }
         "STT_PARTIAL" -> {
-            // Partial result (for real-time display)
+            // Interim result (for real-time display)
             val partialText = json.getString("message")
+        }
+        "STT_STATUS" -> {
+            // Voice recognition status change (preparing/recovering/ready)
+            val statusMessage = json.getString("message")
+            showToast(statusMessage)
         }
     }
 }
@@ -100,7 +105,7 @@ klleonOndeviceSdk.sendStopSpeech()
 Consider the following when targeting TV devices:
 
 - **Screen Rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
-- **Remote Control Key Mapping**: Map directional keys to match the rotated screen
+- **Remote Key Mapping**: Map directional keys to match the rotated screen
 - **Focus Management**: Prevent automatic keyboard display caused by TV auto-focus
 
 ```kotlin
@@ -119,7 +124,7 @@ val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
 
 ### Threading
 ```kotlin
-// Use appropriate coroutine scope for state observation
+// Use appropriate coroutine scopes for state observation
 viewModelScope.launch {
     klleonOndeviceSdk.sdkState.collect { state ->
         // Handle state updates
@@ -135,7 +140,7 @@ viewModelScope.launch {
 **Problem**: `RECORD_AUDIO` permission is not granted
 
 **Solution**:
-- Verify that the permission is declared in `AndroidManifest.xml`
+- Verify the permission is declared in `AndroidManifest.xml`
 - Check the permission handling logic
 - Test across different Android versions
 
@@ -143,9 +148,9 @@ viewModelScope.launch {
 **Problem**: State observation is not working
 
 **Solution**:
-- Verify that state observation is properly set up in the ViewModel
-- Check that the coroutine scope is active
-- Confirm that state collection has started
+- Ensure state observation is properly set up in the ViewModel
+- Verify the coroutine scope is active
+- Confirm state collection has started
 
 #### 3. View Not Ready
 **Problem**: `KlleonSdkView` is not initialized before calling `play()`
@@ -155,12 +160,12 @@ viewModelScope.launch {
 - Enable buttons only when the view is ready
 - Add null checks before calling SDK methods
 
-#### 4. USB Microphone Not Recognized
+#### 4. USB Microphone Not Detected
 **Problem**: USB microphone is connected but not used by the SDK
 
 **Solution**:
-- Check the connection status with `hasUsbMicrophone()`
-- Verify `mmapEnabled = false` (default) -- enabling MMAP is incompatible with some USB microphones
+- Check connection status with `hasUsbMicrophone()`
+- MMAP policy is managed internally by the SDK (default: disabled). Some USB microphones are incompatible with MMAP
 - Check device logs: `adb logcat | grep "Ondevice_Mic"`
 
 #### 5. Voice Recognition Not Working During Avatar Speech
@@ -168,7 +173,7 @@ viewModelScope.launch {
 
 **Solution**:
 - Voice recognition is blocked during avatar speech to prevent echo
-- Stop the avatar's speech first with `sendStopSpeech()`, or try again after speech finishes
+- Stop the avatar's speech first with `sendStopSpeech()`, or try after speech completes
 
 ### Debugging Tips
 

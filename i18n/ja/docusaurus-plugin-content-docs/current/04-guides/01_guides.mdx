@@ -5,27 +5,27 @@ title: 開発ガイド
 sidebar_label: guides
 ---
 
-### 1. 権限管理
-- SDKの初期化前に必ず権限を確認してください
-- ユーザーフレンドリーなメッセージで権限拒否を処理してください
-- 必要な権限について明確な根拠を提供してください
-- さまざまなAndroidバージョンで権限フローをテストしてください
+### 1. パーミッション管理
+- SDKの初期化前に必ずパーミッションを確認してください
+- ユーザーフレンドリーなメッセージでパーミッション拒否を処理してください
+- 必要なパーミッションに対する明確な根拠を提示してください
+- さまざまなAndroidバージョンでパーミッションフローをテストしてください
 
 ```kotlin
 private fun showPermissionRationale() {
     Toast.makeText(
         this,
-        "このアプリが正常に動作するにはオーディオ権限が必要です。",
+        "このアプリが正しく動作するにはオーディオパーミッションが必要です。",
         Toast.LENGTH_LONG
     ).show()
 }
 ```
 
 ### 2. リソース管理
-- `ResourceManager.download()`を使用してアセットをキャッシュディレクトリにコピーしてください
+- `ResourceManager.download()` を使用してアセットをキャッシュディレクトリにコピーしてください
 - `download()` 完了後に `play()` を呼び出してください
-- SDK使用完了時に `finish()` を呼び出してリソースを解放してください
-- `onDestroy()` でリソースを解放してください
+- SDK使用完了時に `finish()` を呼び出してリソースをクリーンアップしてください
+- `onDestroy()` でリソースをクリーンアップしてください
 
 ```kotlin
 override fun onDestroy() {
@@ -42,8 +42,8 @@ override fun onDestroy() {
 
 ### 4. エラー処理
 - SDKメソッド呼び出しをtry-catchブロックで囲んでください
-- デバッグのためにエラーを適切にログに記録してください
-- 失敗した操作に対してユーザーフィードバックを提供してください
+- デバッグのためにエラーを適切にログ出力してください
+- 失敗した操作についてユーザーフィードバックを提供してください
 - SDKメソッド呼び出し前に入力を検証してください
 
 ```kotlin
@@ -51,24 +51,24 @@ fun safeOperation() {
     try {
         klleonOndeviceSdk.sendMessage(message)
     } catch (e: Exception) {
-        Log.e("SDK", "操作に失敗しました", e)
+        Log.e("SDK", "操作失敗", e)
         showUserError("操作に失敗しました。もう一度お試しください。")
     }
 }
 ```
 
 ### 5. UI統合
-- Composeで`AndroidView`を使用して`KlleonSdkView`を統合してください
+- Composeで `AndroidView` を使用して `KlleonSdkView` を統合してください
 - SDKメソッド呼び出し前にビューが正しく初期化されていることを確認してください
 - ビューのライフサイクルを適切に処理してください
 - さまざまな画面サイズと方向でUIをテストしてください
 
 ### 6. 音声認識の統合
 
-ボタンタップ時に音声認識を開始し、無音検出時に自動終了します。
+ボタンタップで音声認識を開始し、無音検出時に自動終了されます。
 
 ```kotlin
-// 音声認識の開始
+// 音声認識を開始
 val success = klleonOndeviceSdk.startVoiceRecognition()
 
 // 結果はsdkState Flowで受信
@@ -76,12 +76,17 @@ klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
         "STT_RESULT" -> {
-            // 音声認識の最終結果
+            // 音声認識最終結果
             val text = json.getString("message")
         }
         "STT_PARTIAL" -> {
             // 中間結果（リアルタイム表示用）
             val partialText = json.getString("message")
+        }
+        "STT_STATUS" -> {
+            // 音声認識状態変化（準備中/再接続中/準備完了）
+            val statusMessage = json.getString("message")
+            showToast(statusMessage)
         }
     }
 }
@@ -89,7 +94,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
 
 ### 7. 発話中断
 
-アバターが発話中に即座に中断できます。
+アバターが発話中の場合、即座に中断できます。
 
 ```kotlin
 klleonOndeviceSdk.sendStopSpeech()
@@ -97,11 +102,11 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ### 8. Android TV対応
 
-TVデバイスでは以下の事項を考慮してください：
+TVデバイスでは以下の点を考慮してください：
 
 - **画面回転**: `KlleonSdkView.setRenderRotation(270)` で270度回転をサポート
-- **リモコンキーマッピング**: 回転した画面に合わせて方向キーをマッピング
-- **フォーカス管理**: TVの自動フォーカスによるキーボード自動表示の防止
+- **リモコンキーマッピング**: 回転された画面に合わせて方向キーをマッピング
+- **フォーカス管理**: TV自動フォーカスによるキーボード自動表示の防止
 
 ```kotlin
 // TV用画面回転
@@ -129,30 +134,30 @@ viewModelScope.launch {
 
 ## トラブルシューティング
 
-### 一般的な問題
+### よくある問題
 
-#### 1. 権限が拒否された
-**問題**: `RECORD_AUDIO`権限が許可されていない
+#### 1. パーミッション拒否
+**問題**: `RECORD_AUDIO` パーミッションが許可されていない
 
 **解決策**:
-- `AndroidManifest.xml`に権限が宣言されているか確認
-- 権限処理ロジックを確認
+- `AndroidManifest.xml` にパーミッションが宣言されているか確認
+- パーミッション処理ロジックを確認
 - さまざまなAndroidバージョンでテスト
 
 #### 2. SDK状態が更新されない
-**問題**: 状態監視が動作しない
+**問題**: 状態の監視が動作しない
 
 **解決策**:
 - ViewModelで状態監視が正しく設定されているか確認
 - コルーチンスコープがアクティブであるか確認
-- 状態収集が開始されているか確認
+- 状態の収集が開始されているか確認
 
 #### 3. ビューが準備されていない
 **問題**: `play()` 呼び出し前に `KlleonSdkView` が初期化されていない
 
 **解決策**:
-- `AndroidView`ファクトリでビューの初期化を確認
-- ビューが準備された場合のみボタンを有効化
+- `AndroidView` ファクトリでビューの初期化を確認
+- ビューが準備できた時のみボタンを有効化
 - SDKメソッド呼び出し前にnullチェックを追加
 
 #### 4. USBマイクが認識されない
@@ -160,14 +165,14 @@ viewModelScope.launch {
 
 **解決策**:
 - `hasUsbMicrophone()` で接続状態を確認
-- `mmapEnabled = false`（デフォルト）を確認 ― MMAP有効化時に一部のUSBマイクが非互換
+- MMAPポリシーはSDK内部で管理されます（デフォルト：無効化）。一部のUSBマイクはMMAP非互換です
 - デバイスログを確認: `adb logcat | grep "Ondevice_Mic"`
 
 #### 5. アバター発話中に音声認識ができない
-**問題**: アバターが話している間に音声認識が開始されない
+**問題**: アバターが話している間、音声認識が開始されない
 
 **解決策**:
-- エコー防止のためアバター発話中は音声認識がブロックされます
+- エコー防止のため、アバター発話中は音声認識がブロックされます
 - `sendStopSpeech()` でアバターの発話を先に中断するか、発話完了後にお試しください
 
 ### デバッグのヒント
@@ -182,7 +187,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
         val json = JSONObject(state)
         val message = json.getString("message")
         val chatType = json.optString("chat_type", "unknown")
-        Log.d("SDKState", "パース済み - chatType: $chatType, メッセージ: $message")
+        Log.d("SDKState", "パース結果 - chatType: $chatType, メッセージ: $message")
     } catch (e: Exception) {
         Log.w("SDKState", "状態JSONパース失敗", e)
     }
@@ -191,7 +196,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
 
 #### レコーダー状態モニタリング
 ```kotlin
-// レコーダー状態変更のモニタリング
+// レコーダー状態変更をモニタリング
 klleonOndeviceSdk.recorderState.collect { state ->
     when (state) {
         is OboeRecorderState.Recording -> {

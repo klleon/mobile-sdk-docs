@@ -46,11 +46,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Copy resources to cache directory
+        // Copy resources to the cache directory
         resourceManager.download(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
+            styleFileName = "loop_sample.style",
             onSuccess = {
                 // Resources are ready — you can now call play()
             },
@@ -149,8 +150,8 @@ fun WorkerScreen(
                                 context = context,
                                 klleonSdkViewInstance = view,
                                 sdkKey = "YOUR_SDK_KEY",
-                                characterId = "character_001",
-                                language = "ko"
+                                avatarId = "character_001",
+                                language = "ko_kr"
                             )
                         }
                     },
@@ -252,7 +253,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT Partial] $message"
+                        "STT_PARTIAL" -> "[STT Interim] $message"
                         "RESPONSE" -> "[Avatar] $message"
                         else -> message
                     }
@@ -314,7 +315,7 @@ fun SimpleSDKIntegration() {
                         context = context,
                         klleonSdkViewInstance = view,
                         sdkKey = "YOUR_SDK_KEY",
-                        characterId = "character_001",
+                        avatarId = "character_001",
                         language = "ko"
                     )
                 }

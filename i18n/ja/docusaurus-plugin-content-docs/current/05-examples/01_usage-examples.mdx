@@ -5,7 +5,7 @@ title: android-examples
 sidebar_label: android examples
 ---
 
-# Androidの使用例
+# Android使用例
 
 ## MainActivityの実装
 
@@ -51,8 +51,9 @@ class MainActivity : ComponentActivity() {
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
+            styleFileName = "loop_sample.style",
             onSuccess = {
-                // リソース準備完了 — play()の呼び出しが可能です
+                // リソース準備完了 — play() 呼び出し可能
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -137,7 +138,7 @@ fun WorkerScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // 制御ボタン
+            // コントロールボタン
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -149,8 +150,8 @@ fun WorkerScreen(
                                 context = context,
                                 klleonSdkViewInstance = view,
                                 sdkKey = "YOUR_SDK_KEY",
-                                characterId = "character_001",
-                                language = "ko"
+                                avatarId = "character_001",
+                                language = "ko_kr"
                             )
                         }
                     },
@@ -280,7 +281,7 @@ class WorkerViewModel : ViewModel() {
 
 ## 最小統合例
 
-シンプルな実装のために：
+シンプルな実装の場合：
 
 ```kotlin
 @Composable
@@ -294,7 +295,7 @@ fun SimpleSDKIntegration() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDKビュー
+        // SDK View
         AndroidView(
             factory = { ctx ->
                 KlleonSdkView(ctx).also { view ->
@@ -314,7 +315,7 @@ fun SimpleSDKIntegration() {
                         context = context,
                         klleonSdkViewInstance = view,
                         sdkKey = "YOUR_SDK_KEY",
-                        characterId = "character_001",
+                        avatarId = "character_001",
                         language = "ko"
                     )
                 }
@@ -341,7 +342,7 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
                 val json = JSONObject(state)
                 "状態: ${json.optString("chat_type")} - ${json.getString("message")}"
             } catch (e: Exception) {
-                "未加工状態: $state"
+                "生データ: $state"
             }
         }
     }

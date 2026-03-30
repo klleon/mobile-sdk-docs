@@ -20,19 +20,19 @@ Please review the following requirements and limitations before using the SDK.
 
 ## Supported Architectures (ABI)
 
-| ABI | Supported | Notes |
-|-----|-----------|-------|
-| `arm64-v8a` | Yes | Most modern devices |
-| `armeabi-v7a` | Yes | Older 32-bit devices |
-| `x86_64` | No | Emulator |
-| `x86` | No | Emulator |
+| ABI | Support | Notes |
+|-----|---------|-------|
+| `arm64-v8a` | Supported | Most modern devices |
+| `armeabi-v7a` | Supported | Older 32-bit devices |
+| `x86_64` | Not supported | Emulator |
+| `x86` | Not supported | Emulator |
 
 :::warning Emulator Notice
 The SDK does not work on x86/x86_64 emulators.
 
 **Testing methods:**
 - Use a physical Android device (recommended)
-- Use an ARM-based emulator (e.g., default emulator on Apple Silicon Macs)
+- Use an ARM-based emulator (e.g., the default emulator on Apple Silicon Macs)
 :::
 
 ## Network Requirements
@@ -44,7 +44,7 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### Firewall Configuration
 ```
-# Domains that must be allowed
+# Domains to allow
 *.klleon.io
 ```
 
@@ -59,12 +59,12 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### USB Microphone Compatibility
 
-- **MMAP Policy**: The default value of `mmapEnabled` is `false`. Enabling MMAP may cause stream open failures on some USB microphones.
+- **MMAP Policy**: MMAP is managed internally by the SDK and is disabled by default. Enabling MMAP may cause stream open failures with some USB microphones.
 - **USB Device Selection**: USB microphones are automatically detected and selected when connected.
 - **Incompatible Devices**: On some MediaTek-based TVs, opening audio streams from USB composite devices (e.g., DM30RGB) may fail.
 
 ### Echo Prevention
-- Voice recognition is automatically blocked while the avatar is speaking.
+- Voice recognition is automatically blocked during avatar speech.
 
 ## Known Issues
 
@@ -92,7 +92,7 @@ override fun onLowMemory() {
 Video processing is paused when the app moves to the background.
 
 
-### 3. Single Instance Restriction
+### 3. Single Instance Limitation
 
 Only **one** `KlleonOndeviceSdk` instance should be created per app.
 
@@ -111,7 +111,7 @@ class MainActivity : Activity() {
 
 ### 4. Screen Rotation
 
-SDK state may be reset when the Activity is recreated due to screen rotation.
+SDK state may be reset if the Activity is recreated during screen rotation.
 
 **Solution:**
 ```xml
@@ -136,15 +136,15 @@ class MainViewModel : ViewModel() {
 
 ### 5. Android TV Specifics
 
-- On the TV platform, auto-focus may be assigned to the first focusable element when the layout changes, causing the keyboard to appear automatically.
-- Block this by using `focusProperties { canFocus = false }` and only enable it on click.
-- Some USB audio device compatibility issues may occur on MediaTek-based TVs.
+- On TV platforms, auto-focus may be assigned to the first focusable element during layout changes, causing the keyboard to appear automatically.
+- Block this by using `focusProperties { canFocus = false }`, then enable only on click.
+- Some MediaTek-based TVs may have compatibility issues with certain USB audio devices.
 
 ## Performance Optimization Tips
 
 ### GPU Acceleration
 
-The SDK uses GPU acceleration by default. If issues occur on lower-end devices:
+The SDK uses GPU acceleration by default. If issues occur on low-end devices:
 
 ```kotlin
 // Check logs when GPU issues occur
@@ -153,7 +153,7 @@ adb logcat | grep "Klleon_"
 
 ### Battery Optimization
 
-Battery consumption can be significant during prolonged use:
+Battery consumption may be significant during prolonged use:
 - Call `finish()` when not in use
 - Recommended to stop processing when the screen is off
 - Control video as needed with `pauseVideo()` / `resumeVideo()`

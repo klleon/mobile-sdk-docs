@@ -11,9 +11,9 @@ sidebar_label: Get Started
 
 Before using the Klleon Ondevice SDK, the following preparations are required:
 
-1.  **Kleon Studio Account**: A [Kleon Studio](https://www.studio.klleon.io/) account is required to use SDK features. If you don't have an account, please sign up first.
-2.  **SDK Key**: After registering your domain, a unique `sdk_key` will be issued for that domain. This key is required for SDK initialization.
-3.  **Character ID**: You need the `characterId` of the AI avatar you want to use.
+1.  **Kleon Studio Account**: A [Kleon Studio](https://www.studio.klleon.io/) account is required to use SDK features. Please sign up first if you don't have one.
+2.  **SDK Key Issuance**: After registering your domain, a unique `sdk_key` for that domain will be issued. This key is required for SDK initialization.
+3.  **Avatar ID**: You need the `avatarId` of the AI avatar you want to use.
 
 ## Permissions
 
@@ -105,11 +105,12 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Copy resources to cache directory
+        // Copy resources to the cache directory
         resourceManager.download(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
+            styleFileName = "loop_sample.style",
             onSuccess = {
                 // Resources are ready — you can now call play()
             },
@@ -129,25 +130,23 @@ klleonOndeviceSdk.play(
     context = this,                    // Context
     klleonSdkViewInstance = sdkView,   // KlleonSdkView instance
     sdkKey = "YOUR_SDK_KEY",           // SDK key
-    characterId = "character_001",     // Character ID
-    language = "ko",                   // Language (ko, en, ja, etc.)
-    mmapEnabled = false                // Audio MMAP policy (default: false)
+    avatarId = "character_001",        // Avatar ID
+    language = "ko_kr"                 // Language (ko_kr, en_us, ja_jp)
 )
 ```
 
 **Parameters:**
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `context` | Context | Yes | - | Current context |
-| `klleonSdkViewInstance` | KlleonSdkView? | Yes | - | Rendering view instance |
-| `sdkKey` | String | Yes | - | SDK authentication key |
-| `characterId` | String | Yes | - | AI avatar character ID |
-| `language` | String | Yes | - | Language code |
-| `mmapEnabled` | Boolean | No | false | Enable audio MMAP (incompatible with some USB microphones) |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `context` | Context | Yes | Current context |
+| `klleonSdkViewInstance` | KlleonSdkView? | Yes | Rendering view instance |
+| `sdkKey` | String | Yes | SDK authentication key |
+| `avatarId` | String | Yes | AI avatar ID |
+| `language` | String | Yes | Language code (`ko_kr`, `en_us`, `ja_jp`) |
 
 ## Next Steps
 
-After completing the setup:
+After completing setup:
 
 1. Check the [API Reference](api-reference) for available methods
 2. Follow the [Guides](../guides/guides) for optimal integration

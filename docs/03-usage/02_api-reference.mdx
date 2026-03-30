@@ -57,21 +57,19 @@ klleonOndeviceSdk.play(
     context: Context,
     klleonSdkViewInstance: KlleonSdkView?,
     sdkKey: String,
-    characterId: String,
-    language: String,
-    mmapEnabled: Boolean = false
+    avatarId: String,
+    language: String
 )
 ```
 
 **매개변수:**
-| 매개변수 | 타입 | 필수 | 기본값 | 설명 |
-|---------|------|------|--------|------|
-| `context` | Context | O | - | 현재 컨텍스트 |
-| `klleonSdkViewInstance` | KlleonSdkView? | O | - | 렌더링 뷰 |
-| `sdkKey` | String | O | - | SDK 인증 키 |
-| `characterId` | String | O | - | AI 아바타 캐릭터 ID |
-| `language` | String | O | - | 언어 코드 (ko, en, ja 등) |
-| `mmapEnabled` | Boolean | X | false | 오디오 MMAP 활성화 |
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `context` | Context | O | 현재 컨텍스트 |
+| `klleonSdkViewInstance` | KlleonSdkView? | O | 렌더링 뷰 |
+| `sdkKey` | String | O | SDK 인증 키 |
+| `avatarId` | String | O | AI 아바타 ID |
+| `language` | String | O | 언어 코드 (`ko_kr`, `en_us`, `ja_jp`) |
 
 **예제:**
 ```kotlin
@@ -80,8 +78,8 @@ workerView?.let { view ->
         context = this,
         klleonSdkViewInstance = view,
         sdkKey = "YOUR_SDK_KEY",
-        characterId = "character_001",
-        language = "ko"
+        avatarId = "character_001",
+        language = "ko_kr"
     )
 }
 ```
@@ -121,7 +119,7 @@ klleonOndeviceSdk.sendMessage("안녕하세요")
 
 ### sendMessageEcho()
 
-에코 메시지를 전송합니다 (테스트용).
+입력 텍스트를 그대로 TTS + 립싱크로 재생합니다 (LLM 바이패스). 고정 안내 멘트 등에 사용합니다.
 
 ```kotlin
 klleonOndeviceSdk.sendMessageEcho(text: String)
@@ -224,6 +222,36 @@ klleonOndeviceSdk.stopVoiceRecognition()
 val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
 ```
 
+### voiceRecognitionMode
+
+음성 인식 모드를 설정합니다. `play()` 호출 전에 설정해야 합니다.
+
+```kotlin
+klleonOndeviceSdk.voiceRecognitionMode = VoiceRecognitionMode.ALWAYS_ON
+```
+
+**모드:**
+| 모드 | 설명 |
+|------|------|
+| `DISCRETE` | 단발 모드 (기본값). 수동으로 시작/종료 |
+| `ALWAYS_ON` | 상시 리스닝. play() 후 자동 시작, 세션 유지 |
+
+### startAlwaysOnListening()
+
+ALWAYS_ON 리스닝을 수동으로 시작합니다.
+
+```kotlin
+val success: Boolean = klleonOndeviceSdk.startAlwaysOnListening()
+```
+
+### isAutoListening()
+
+ALWAYS_ON 자동 리스닝 중인지 확인합니다.
+
+```kotlin
+val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
+```
+
 ---
 
 ## 녹음 제어 API
@@ -322,11 +350,37 @@ klleonOndeviceSdk.sdkState.collect { state ->
 | `WSS_CLOSED` | WebSocket 연결 종료됨 |
 | `WSS_RETRY_OVER` | 최대 재시도 초과 |
 | `WSS_NOT_CONNECTED` | 미연결 상태 |
-| `ACTIVATE_VOICE` | 음성 활성화 |
-| `RESPONSE` | 아바타 응답 메시지 |
-| `STT_RESULT` | 음성 인식 결과 |
+| `ACTIVATE_VOICE` | 음성 입력 수신 준비 완료 |
+| `TEXT` | 서버로부터 텍스트 응답 수신 |
+| `RESPONSE_IS_ENDED` | 서버 응답 스트림 종료 |
+| `TTS_START` | TTS 음성 재생 시작 |
+| `TTS_END` | TTS 음성 재생 완료 (발화 종료 감지에 사용) |
+| `SHOW_AVATAR` | 아바타 표시 준비 완료 |
+| `USER_SPEECH_STARTED` | 사용자 발화 시작 감지 |
+| `USER_SPEECH_STOPPED` | 사용자 발화 종료 감지 |
+| `PREPARING_RESPONSE` | 서버 응답 준비 중 |
+| `STT_RESULT` | 음성 인식 최종 결과 |
 | `STT_PARTIAL` | 음성 인식 중간 결과 |
 | `STT_ERROR` | 음성 인식 에러 |
+| `STT_STATUS` | 음성 인식 상태 변화 알림 (준비 중/재연결 중/준비 완료) |
+| `WORKER_DISCONNECTED` | 소켓 연결 종료 |
+| `SPEECH_START` | 아바타 발화 시작 |
+| `SPEECH_END` | 아바타 발화 종료 |
+| `STOP_RESPONSE_MESSAGE` | 현재 아바타 발화 중단 |
+
+#### STT_STATUS 상세
+
+음성 인식 세션의 일시적 상태 변화를 알려줍니다. 토큰 기반 인증을 사용하는 STT 제공자(Azure 등)에서 발생합니다.
+
+| 상태 | message 값 | 의미 | 발생 시점 |
+|------|------------|------|-----------|
+| `Preparing` | `음성 인식 준비 중` | 토큰 대기 중으로 인식 시작이 지연됨 | 토큰 미수신 상태에서 음성 인식 시작 시 |
+| `Recovering` | `음성 인식 재연결 중` | 인증 실패로 토큰 재발급 대기 중 | 인식 중 인증 토큰 만료 시 |
+| `Ready` | `음성 인식 준비 완료` | 복구 완료, 음성 인식 재개 | 토큰 재발급 후 인식 재시작 시 |
+
+:::tip
+`STT_STATUS`는 일시적 상태 알림입니다. `음성 인식 준비 중` 또는 `음성 인식 재연결 중` 수신 시 사용자에게 토스트 등으로 안내하고, `음성 인식 준비 완료` 수신 시 자연스럽게 해제하면 됩니다.
+:::
 
 ### recorderState
 

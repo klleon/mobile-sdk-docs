@@ -7,25 +7,83 @@ sidebar_label: Release Notes
 
 # Release Notes
 
-Version-specific changelogs for the Klleon Ondevice SDK.
+Version-by-version changes for the Klleon Ondevice SDK.
 
 ---
 
-## v0.2.17 (Latest)
+## v0.3.4 (Latest)
 
 **Release Date**: March 2026
 
+### Changes
+- Disabled StyleEncoder runtime inference (skip model load when .style is pre-loaded)
+- Restored SdkInitializer.validate() call
+- Improved sample app resource download flow
+
+---
+
+## v0.3.3
+
+**Release Date**: March 2026
+
+### Changes
+- Pre-computed .style file loading (StyleFileLoader added)
+- Removed style_encoder_float32.bin asset (~35MB AAR size reduction)
+- Internalized play() parameters (removed ttsModelUse, mmapEnabled, tokenServerUrl)
+- Added WebSocket speech signals (SPEECH_START, SPEECH_END, STOP_RESPONSE_MESSAGE)
+- ResourceManager .style file download support
+
+---
+
+## v0.3.2
+
+**Release Date**: March 2026
+
+### Changes
+- Changed Oboe input format from Float to I16 (USB microphone compatibility)
+- Added I16 to Float32 runtime conversion logic
+- publish.sh per-STT-provider deployment support
+
+---
+
+## v0.3.1
+
+**Release Date**: March 2026
+
+### Changes
+- Added ALWAYS_ON voice mode (auto-start after play(), session persistence)
+- Removed CONTINUOUS mode and dead code cleanup
+- Removed unnecessary START_VOICE/END_VOICE signals from Azure STT
+
+---
+
+## v0.2.18
+
+**Release Date**: March 2026
+
+### Changes
+- Azure STT token server integration
+
+---
+
+## v0.2.17
+
+**Release Date**: March 2026
+
+### New Features
+- Added voice recognition status notification (`STT_STATUS`) — notifies the app of token wait/reconnection/recovery status
+
 ### Bug Fixes
 - Fixed audio input stream open failure on some devices
-- Added `mmapEnabled` parameter to the `play()` function
+- Added `mmapEnabled` parameter to `play()` function
 
 ---
 
 ## v0.2.16
 
 ### Improvements
-- Added STT partial result (`STT_PARTIAL`) support
-- Changed SDK distribution to bundled AAR (consolidated dependencies)
+- Added STT intermediate results (`STT_PARTIAL`) support
+- Changed SDK distribution to bundled AAR (dependency integration)
 
 ---
 
@@ -40,7 +98,7 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 ## v0.2.14
 
 ### Improvements
-- Improved USB microphone compatibility (MMAP disabled by default)
+- USB microphone compatibility improvements (MMAP disabled by default)
 
 ---
 
@@ -63,22 +121,22 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 ## v0.2.11
 
 ### Bug Fixes
-- Fixed staircase artifact during screen rotation rendering
+- Fixed rendering staircase artifact during screen rotation
 
 ---
 
 ## v0.2.10
 
 ### New Features
-- `sendStopSpeech()`: Stop avatar speech
-- `sendChangeLanguage()`: Change language during conversation
+- `sendStopSpeech()`: Avatar speech interruption
+- `sendChangeLanguage()`: Language change during conversation
 
 ---
 
 ## v0.2.9
 
 ### New Features
-- Multi-language support (Korean / Japanese / English)
+- Multi-language support (Korean/Japanese/English)
 - Android TV UI improvements
 
 ---
@@ -87,14 +145,14 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 
 ### New Features
 - Android TV 270-degree rotation support
-- Dynamic `characterId` passing per character
+- Dynamic `characterId` per character
 
 ---
 
 ## v0.2.7
 
 ### Improvements
-- Improved USB microphone device selection
+- USB microphone device selection improvements
 
 ---
 
@@ -102,7 +160,7 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 
 ### New Features
 - Added `sendChangeLanguage()` API
-- Improved STT result handling
+- STT result processing improvements
 
 ---
 
@@ -119,11 +177,11 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 ## v0.2.4
 
 ### New Features
-- `play()` API change: Switched to `sdkKey`, `characterId`, `language` based approach
+- `play()` API change: switched to `sdkKey`, `characterId`, `language` based
 
 ### Bug Fixes
 - Sony TV / Android 8.1 compatibility fix
-- Improved long-running stability
+- Long-term usage stability improvements
 
 ---
 
@@ -150,8 +208,8 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 **Release Date**: October 2025
 
 ### Bug Fixes
-- Improved server connection stability
-- Enhanced WebSocket reconnection logic
+- Server connection stability improvements
+- WebSocket reconnection logic enhancements
 
 ---
 
@@ -160,9 +218,9 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 **Release Date**: September 2025
 
 ### Improvements
-- Enhanced model security
-- Optimized video processing performance
-- Improved GPU acceleration performance
+- Model security enhancements
+- Video processing performance optimization
+- GPU acceleration performance improvements
 
 ---
 
@@ -184,7 +242,8 @@ Version-specific changelogs for the Klleon Ondevice SDK.
 
 | Version | Status | Notes |
 |---------|--------|-------|
-| 0.2.x | Actively supported | Latest |
-| 0.1.x | End of support | Ended Q1 2025 |
+| 0.3.x | Active Support | Latest |
+| 0.2.x | Active Support | |
+| 0.1.x | End of Support | Ended Q1 2025 |
 
 We recommend using the latest version.
