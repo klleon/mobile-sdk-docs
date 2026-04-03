@@ -22,15 +22,61 @@ private fun showPermissionRationale() {
 ```
 
 ### 2. 리소스 관리
-- `ResourceManager.download()`를 사용하여 에셋을 캐시 디렉토리로 복사하세요
-- `download()` 완료 후 `play()`를 호출하세요
-- SDK 사용 완료 시 `finish()`를 호출하여 리소스를 정리하세요
-- `onDestroy()`에서 리소스를 정리하세요
+
+`ResourceManager.init()`으로 리소스를 초기화하고, `onSuccess` 콜백 후에만 `play()`를 호출하세요.
+
+#### 호출 순서
+
+```
+아바타 선택   → ResourceManager.init(avatarId) → onSuccess → sdk.play() → ... → sdk.finish()
+같은 아바타   → ResourceManager.init(동일 avatarId) → 버퍼 재사용 → 즉시 onSuccess → sdk.play()
+아바타 변경   → ResourceManager.init(새 avatarId) → 자동으로 이전 버퍼 해제 + 새 할당 → onSuccess → sdk.play()
+앱 종료      → ResourceManager.deinit() (Application.onDestroy 또는 Activity.onDestroy에서 호출)
+```
+
+#### 안전한 정리 패턴
+
+SDK를 사용하는 Activity에서는 `onDestroy()`에서 `finish()`를 호출하세요:
 
 ```kotlin
+// ChatActivity (SDK play 화면)
 override fun onDestroy() {
     super.onDestroy()
     klleonOndeviceSdk.finish()
+}
+```
+
+아바타 선택 화면처럼 `init()`만 호출하고 `play()`는 다른 Activity에서 호출하는 경우,
+SDK가 재생 중이 아니면 `deinit()`으로 메모리를 해제하세요:
+
+```kotlin
+// CharacterActivity (아바타 선택 화면)
+override fun onDestroy() {
+    super.onDestroy()
+    if (!KlleonOndeviceSdk.playing) {
+        ResourceManager.deinit()
+    }
+}
+```
+
+#### 백그라운드 메모리 해제
+
+앱이 백그라운드로 전환되면 ~1GB YUV 버퍼가 불필요하게 점유됩니다. `Application`에 `ComponentCallbacks2`를 등록하여 자동 해제하세요:
+
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        registerComponentCallbacks(object : ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                    ResourceManager.deinit()
+                }
+            }
+            override fun onConfigurationChanged(newConfig: Configuration) {}
+            override fun onLowMemory() { ResourceManager.deinit() }
+        })
+    }
 }
 ```
 

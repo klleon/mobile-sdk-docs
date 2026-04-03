@@ -46,6 +46,83 @@ klleonSdkView.setRenderRotation(270) // 0, 90, 270도 지원
 
 ---
 
+## ResourceManager
+
+리소스 초기화 및 해제를 담당하는 클래스입니다. `play()` 전에 반드시 `init()`으로 리소스를 준비해야 합니다.
+
+```kotlin
+val resourceManager = ResourceManager()
+```
+
+### init()
+
+아바타 리소스를 캐시 디렉토리로 복사하고, YUV 변환 및 네이티브 메모리 적재를 수행합니다.
+
+```kotlin
+resourceManager.init(
+    context: Context,
+    mp4FileName: String,
+    npzFileName: String,
+    styleFileName: String = "",
+    avatarId: String = "",
+    onSuccess: () -> Unit,
+    onError: (Throwable) -> Unit
+)
+```
+
+**매개변수:**
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `context` | Context | O | 현재 컨텍스트 |
+| `mp4FileName` | String | O | 아바타 MP4 파일명 (assets 내) |
+| `npzFileName` | String | O | 아바타 NPZ 파일명 (assets 내) |
+| `styleFileName` | String | X | 스타일 파일명 (기본값: "") |
+| `avatarId` | String | X | 아바타 ID. 동일 아바타 재진입 시 버퍼를 재사용하여 즉시 `onSuccess` 반환 |
+| `onSuccess` | () -> Unit | O | 리소스 준비 완료 콜백 |
+| `onError` | (Throwable) -> Unit | O | 에러 콜백 |
+
+**예제:**
+```kotlin
+resourceManager.init(
+    context = this,
+    mp4FileName = "loop_sample.mp4",
+    npzFileName = "loop_sample.npz",
+    styleFileName = "loop_sample.style",
+    avatarId = "character_001",
+    onSuccess = {
+        // 준비 완료 — 이제 play() 호출 가능
+        klleonOndeviceSdk.play(context, sdkView, sdkKey, avatarId, language)
+    },
+    onError = { error ->
+        Log.e("SDK", "리소스 준비 실패", error)
+    }
+)
+```
+
+:::info 버퍼 재사용
+동일한 아바타(`avatarId`)로 `init()`을 재호출하면 이미 준비된 버퍼를 재사용하여 즉시 `onSuccess`를 반환합니다. 다른 아바타로 전환 시에는 이전 버퍼를 해제하고 새로 할당합니다.
+:::
+
+### deinit()
+
+네이티브 YUV 버퍼 메모리를 해제하고 리소스 상태를 초기화합니다.
+
+```kotlin
+resourceManager.deinit()
+```
+
+:::tip 멱등성 보장
+`deinit()`은 여러 번 호출해도 안전합니다. 이미 해제된 상태에서 호출하면 no-op입니다.
+:::
+
+### 호출 규칙
+
+1. **`init()`** — 아바타 선택 완료 시 호출. 아바타 변경 시 이전 버퍼를 자동 해제합니다.
+2. **`play()`** — `init()`의 `onSuccess` 콜백이 왔을 때만 호출 가능
+3. **`deinit()`** — 앱 완전 종료 시 호출. `finish()`는 버퍼를 유지하여 동일 아바타 재진입을 최적화합니다.
+
+---
+
 ## SDK 메서드
 
 ### play()
@@ -504,7 +581,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        klleonOndeviceSdk.finish() // 리소스 정리
+        klleonOndeviceSdk.finish()  // SDK 정지 (버퍼는 재사용을 위해 유지)
+        ResourceManager.deinit()    // 앱 종료 시 버퍼 완전 해제
     }
 }
 ```

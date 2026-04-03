@@ -7,18 +7,44 @@ sidebar_label: Release Notes
 
 # Release Notes
 
-Version-by-version changes for the Klleon Ondevice SDK.
+Version-specific changes for the Klleon Ondevice SDK.
 
 ---
 
-## v0.3.4 (Latest)
+## v0.3.6 (Latest)
+
+**Release Date**: April 2026
+
+### Changes
+- Added `avatarId` parameter to `ResourceManager.init()`
+- YUV buffer lifecycle separation: buffer reuse for same avatar re-entry (0ms)
+- 3-second cooldown when switching avatars (OOM defense for low-end TV SoCs)
+- Buffer retained on `finish()` (`resetState`) + full release on app exit (`deinit`)
+- Automatic background memory release based on `onTrimMemory` / `onLowMemory`
+- IO coroutine transition inside `init()` (main thread blocking removed)
+
+---
+
+## v0.3.5
+
+**Release Date**: April 2026
+
+### Changes
+- RAW YUV video decoding pipeline implementation (MP4→YUV pre-conversion)
+- NV12/I420 color format auto-detection and conversion
+- Activity lifecycle-based native memory release
+- Android memory monitoring skill added
+
+---
+
+## v0.3.4
 
 **Release Date**: March 2026
 
 ### Changes
-- Disabled StyleEncoder runtime inference (skip model load when .style is pre-loaded)
-- Restored SdkInitializer.validate() call
-- Improved sample app resource download flow
+- StyleEncoder runtime inference disabled (model load skipped when .style pre-loaded)
+- SdkInitializer.validate() call restored
+- Sample app resource download flow improved
 
 ---
 
@@ -28,9 +54,9 @@ Version-by-version changes for the Klleon Ondevice SDK.
 
 ### Changes
 - Pre-computed .style file loading (StyleFileLoader added)
-- Removed style_encoder_float32.bin asset (~35MB AAR size reduction)
-- Internalized play() parameters (removed ttsModelUse, mmapEnabled, tokenServerUrl)
-- Added WebSocket speech signals (SPEECH_START, SPEECH_END, STOP_RESPONSE_MESSAGE)
+- style_encoder_float32.bin asset removed (~35MB AAR size reduction)
+- play() parameters internalized (ttsModelUse, mmapEnabled, tokenServerUrl removed)
+- WebSocket voice signals added (SPEECH_START, SPEECH_END, STOP_RESPONSE_MESSAGE)
 - ResourceManager .style file download support
 
 ---
@@ -40,9 +66,9 @@ Version-by-version changes for the Klleon Ondevice SDK.
 **Release Date**: March 2026
 
 ### Changes
-- Changed Oboe input format from Float to I16 (USB microphone compatibility)
-- Added I16 to Float32 runtime conversion logic
-- publish.sh per-STT-provider deployment support
+- Oboe input format changed from Float to I16 (USB microphone compatibility)
+- I16 → Float32 runtime conversion logic added
+- publish.sh STT provider-specific deployment support
 
 ---
 
@@ -51,9 +77,9 @@ Version-by-version changes for the Klleon Ondevice SDK.
 **Release Date**: March 2026
 
 ### Changes
-- Added ALWAYS_ON voice mode (auto-start after play(), session persistence)
-- Removed CONTINUOUS mode and dead code cleanup
-- Removed unnecessary START_VOICE/END_VOICE signals from Azure STT
+- ALWAYS_ON voice mode added (auto-starts after play(), maintains session)
+- CONTINUOUS mode removed and dead code cleanup
+- Azure STT unnecessary START_VOICE/END_VOICE signals removed
 
 ---
 
@@ -71,10 +97,10 @@ Version-by-version changes for the Klleon Ondevice SDK.
 **Release Date**: March 2026
 
 ### New Features
-- Added voice recognition status notification (`STT_STATUS`) — notifies the app of token wait/reconnection/recovery status
+- Speech recognition status notification (`STT_STATUS`) added — notifies app of token waiting/reconnecting/recovery complete states
 
 ### Bug Fixes
-- Fixed audio input stream open failure on some devices
+- Fixed audio input stream opening failure on some devices
 - Added `mmapEnabled` parameter to `play()` function
 
 ---
@@ -82,8 +108,8 @@ Version-by-version changes for the Klleon Ondevice SDK.
 ## v0.2.16
 
 ### Improvements
-- Added STT intermediate results (`STT_PARTIAL`) support
-- Changed SDK distribution to bundled AAR (dependency integration)
+- STT intermediate results (`STT_PARTIAL`) support added
+- SDK distribution changed to bundled AAR (dependencies integrated)
 
 ---
 
@@ -91,7 +117,7 @@ Version-by-version changes for the Klleon Ondevice SDK.
 
 ### New Features
 - Voice recognition improvements
-- Automatic voice recognition pause during avatar speech
+- Auto-pause voice recognition during avatar speech
 
 ---
 
@@ -145,7 +171,7 @@ Version-by-version changes for the Klleon Ondevice SDK.
 
 ### New Features
 - Android TV 270-degree rotation support
-- Dynamic `characterId` per character
+- Dynamic `characterId` passing per character
 
 ---
 
@@ -159,7 +185,7 @@ Version-by-version changes for the Klleon Ondevice SDK.
 ## v0.2.6
 
 ### New Features
-- Added `sendChangeLanguage()` API
+- `sendChangeLanguage()` API added
 - STT result processing improvements
 
 ---
@@ -209,7 +235,7 @@ Version-by-version changes for the Klleon Ondevice SDK.
 
 ### Bug Fixes
 - Server connection stability improvements
-- WebSocket reconnection logic enhancements
+- WebSocket reconnection logic strengthened
 
 ---
 
@@ -242,8 +268,8 @@ Version-by-version changes for the Klleon Ondevice SDK.
 
 | Version | Status | Notes |
 |---------|--------|-------|
-| 0.3.x | Active Support | Latest |
-| 0.2.x | Active Support | |
-| 0.1.x | End of Support | Ended Q1 2025 |
+| 0.3.x | Active support | Latest |
+| 0.2.x | Active support | |
+| 0.1.x | End of support | Ended Q1 2025 |
 
-We recommend using the latest version.
+Using the latest version is recommended.

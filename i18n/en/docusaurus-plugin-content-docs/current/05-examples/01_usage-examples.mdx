@@ -46,14 +46,15 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Copy resources to the cache directory
-        resourceManager.download(
+        // Resource initialization (cache copy + YUV conversion + memory loading)
+        resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
             styleFileName = "loop_sample.style",
+            avatarId = "character_001",
             onSuccess = {
-                // Resources are ready — you can now call play()
+                // Resources ready — play() can now be called
             },
             onError = { error ->
                 Log.e("MainActivity", "Resource preparation failed", error)
@@ -253,7 +254,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT Interim] $message"
+                        "STT_PARTIAL" -> "[STT partial] $message"
                         "RESPONSE" -> "[Avatar] $message"
                         else -> message
                     }
@@ -324,6 +325,42 @@ fun SimpleSDKIntegration() {
             enabled = sdkView != null
         ) {
             Text("Start SDK")
+        }
+    }
+}
+```
+
+## Avatar Switching Example
+
+`init()` automatically detects avatar changes. For the same avatar, it instantly reuses the buffer; for a different avatar, it releases the previous buffer and allocates a new one.
+
+```kotlin
+class CharacterSelectActivity : ComponentActivity() {
+
+    fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
+        // init() compares avatarId to automatically handle buffer reuse/switching
+        // Same avatar: instant onSuccess (0ms)
+        // Different avatar: release previous buffer + new allocation
+        ResourceManager.init(
+            context = this,
+            mp4FileName = avatarMp4,
+            npzFileName = avatarNpz,
+            avatarId = avatarId,
+            onSuccess = {
+                // Resources ready — navigate to ChatActivity
+                startActivity(Intent(this, ChatActivity::class.java))
+            },
+            onError = { error ->
+                Log.e("CharacterSelect", "Resource preparation failed", error)
+            }
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Release memory if exiting before play()
+        if (!KlleonOndeviceSdk.playing) {
+            ResourceManager.deinit()
         }
     }
 }

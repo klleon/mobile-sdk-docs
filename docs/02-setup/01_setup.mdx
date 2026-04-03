@@ -9,7 +9,7 @@ sidebar_label: setup
 
 ## 1) 요구사항
 
-- **SDK 버전**: 0.3.4
+- **SDK 버전**: 0.3.6
 - **최소 SDK**: 26 (Android 8.0)
 - **타겟 SDK**: 36
 - **지원 ABI**: arm64-v8a, armeabi-v7a
@@ -19,20 +19,20 @@ sidebar_label: setup
 ### 리소스
 
 SDK에는 비디오 파일(`.mp4`)과 얼굴 모델 파일(`.npz`)이 필요합니다.
-이 파일들은 `assets`(`src/main/assets`) 폴더에 배치한 뒤, `ResourceManager.download()`를 호출하여 캐시 디렉토리로 복사합니다.
+이 파일들은 `assets`(`src/main/assets`) 폴더에 배치한 뒤, `ResourceManager.init()`을 호출하여 캐시 복사 및 초기화합니다.
 
 ```kotlin
 import io.klleon.ondevice.ResourceManager
 
 val resourceManager = ResourceManager()
 
-resourceManager.download(
+ResourceManager.init(
     context = this,
     mp4FileName = "loop_sample.mp4",
     npzFileName = "loop_sample.npz",
+    avatarId = "character_001",
     onSuccess = {
         // 리소스 준비 완료 — play() 호출 가능
-        // resourceManager.vpPath, resourceManager.fpPath 자동 설정됨
     },
     onError = { error ->
         Log.e("Setup", "리소스 준비 실패", error)
@@ -41,8 +41,8 @@ resourceManager.download(
 ```
 
 :::info
-`download()` 완료 후 `vpPath`(비디오 경로)와 `fpPath`(얼굴 모델 경로)가 자동 설정됩니다.
-`play()` 호출 전에 반드시 `download()`가 완료되어야 합니다.
+`init()` 완료 후 내부 경로가 자동 설정됩니다.
+`play()` 호출 전에 반드시 `init()`의 `onSuccess` 콜백이 호출되어야 합니다.
 :::
 
 ## 2) Android 구성
@@ -71,7 +71,7 @@ android {
 ```kotlin
 dependencies {
     // SDK
-    implementation("io.klleon:ondevice-sdk:0.3.4")
+    implementation("io.klleon:ondevice-sdk:0.3.6")
 
     // Coroutines (SDK 필수)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")

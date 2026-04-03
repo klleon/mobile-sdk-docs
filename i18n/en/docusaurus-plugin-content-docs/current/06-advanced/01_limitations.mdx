@@ -20,8 +20,8 @@ Please review the following requirements and limitations before using the SDK.
 
 ## Supported Architectures (ABI)
 
-| ABI | Support | Notes |
-|-----|---------|-------|
+| ABI | Supported | Notes |
+|-----|-----------|-------|
 | `arm64-v8a` | Supported | Most modern devices |
 | `armeabi-v7a` | Supported | Older 32-bit devices |
 | `x86_64` | Not supported | Emulator |
@@ -30,9 +30,9 @@ Please review the following requirements and limitations before using the SDK.
 :::warning Emulator Notice
 The SDK does not work on x86/x86_64 emulators.
 
-**Testing methods:**
-- Use a physical Android device (recommended)
-- Use an ARM-based emulator (e.g., the default emulator on Apple Silicon Macs)
+**Testing Methods:**
+- Use a real Android device (recommended)
+- Use an ARM-based emulator (e.g., default emulator on Apple Silicon Mac)
 :::
 
 ## Network Requirements
@@ -42,7 +42,7 @@ The SDK does not work on x86/x86_64 emulators.
 - **Protocol**: HTTPS / WSS (TLS 1.2 or higher)
 - **Port**: 443
 
-### Firewall Configuration
+### Firewall Settings
 ```
 # Domains to allow
 *.klleon.io
@@ -59,9 +59,9 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### USB Microphone Compatibility
 
-- **MMAP Policy**: MMAP is managed internally by the SDK and is disabled by default. Enabling MMAP may cause stream open failures with some USB microphones.
+- **MMAP Policy**: MMAP is managed internally by the SDK and disabled by default. Enabling MMAP may cause stream opening failures on some USB microphones.
 - **USB Device Selection**: USB microphones are automatically detected and selected when connected.
-- **Incompatible Devices**: On some MediaTek-based TVs, opening audio streams from USB composite devices (e.g., DM30RGB) may fail.
+- **Incompatible Devices**: Some MediaTek-based TVs may fail to open audio streams from USB composite devices (e.g., DM30RGB).
 
 ### Echo Prevention
 - Voice recognition is automatically blocked during avatar speech.
@@ -70,24 +70,66 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### 1. Memory Usage
 
-Memory usage may be high during video processing and AI inference.
+Memory usage may be high during video processing and AI inference. In particular, calling `ResourceManager.init()` allocates **approximately 1GB of native memory** for YUV frame buffers.
 
-**Recommendations:**
+#### Buffer Lifecycle
+
+`finish()` retains the buffer for instant reuse when re-entering with the same avatar (0ms). For complete memory release, `deinit()` must be explicitly called.
+
+| Scenario | Behavior |
+|----------|----------|
+| Same avatar re-entry | `init(same avatarId)` → Buffer reuse (0ms) |
+| Different avatar switch | `init(new avatarId)` → Auto-release previous buffer + new allocation |
+| App background transition | `onTrimMemory` → `deinit()` → Buffer released |
+| App exit | `CharacterActivity.onDestroy` → `deinit()` → Full release |
+| Process force kill | OS kernel auto-reclaims (no code needed) |
+
+#### Required Implementation Pattern
+
+**Application class — Automatic background memory release:**
 ```kotlin
-override fun onDestroy() {
-    super.onDestroy()
-    // Always release resources
-    klleonOndeviceSdk.finish()
-}
-
-override fun onLowMemory() {
-    super.onLowMemory()
-    // Handle low memory
-    klleonOndeviceSdk.finish()
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        registerComponentCallbacks(object : ComponentCallbacks2 {
+            override fun onTrimMemory(level: Int) {
+                if (level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) {
+                    ResourceManager.deinit()
+                }
+            }
+            override fun onConfigurationChanged(newConfig: Configuration) {}
+            override fun onLowMemory() { ResourceManager.deinit() }
+        })
+    }
 }
 ```
 
-### 2. Background Restrictions
+**SDK play screen (ChatActivity, etc.):**
+```kotlin
+override fun onDestroy() {
+    super.onDestroy()
+    klleonOndeviceSdk.finish() // Retain buffer (waiting for reuse)
+}
+```
+
+**Avatar selection screen (CharacterActivity, etc.):**
+```kotlin
+override fun onDestroy() {
+    super.onDestroy()
+    // Release memory manually if SDK is not playing (exited before play)
+    if (!KlleonOndeviceSdk.playing) {
+        ResourceManager.deinit()
+    }
+}
+```
+
+:::info Safe Multiple Calls
+- `init()`: Reuses existing buffer when re-called with the same avatar (`avatarId`) (no duplicate allocation)
+- `deinit()`: Safe to call multiple times (idempotency guaranteed)
+- `finish()`: Safe for multiple calls with internal playing state check
+:::
+
+### 2. Background Limitations
 
 Video processing is paused when the app moves to the background.
 
@@ -111,17 +153,17 @@ class MainActivity : Activity() {
 
 ### 4. Screen Rotation
 
-SDK state may be reset if the Activity is recreated during screen rotation.
+SDK state may be reset when the Activity is recreated due to screen rotation.
 
 **Solution:**
 ```xml
-<!-- AndroidManifest.xml - Handle screen rotation manually -->
+<!-- AndroidManifest.xml - Handle screen rotation directly -->
 <activity
     android:name=".MainActivity"
     android:configChanges="orientation|screenSize|screenLayout" />
 ```
 
-Or use a ViewModel to retain the SDK instance:
+Or use ViewModel to retain the SDK instance:
 
 ```kotlin
 class MainViewModel : ViewModel() {
@@ -136,15 +178,15 @@ class MainViewModel : ViewModel() {
 
 ### 5. Android TV Specifics
 
-- On TV platforms, auto-focus may be assigned to the first focusable element during layout changes, causing the keyboard to appear automatically.
-- Block this by using `focusProperties { canFocus = false }`, then enable only on click.
+- On TV platforms, auto-focus may be assigned to the first focusable element during layout changes, causing the keyboard to auto-display.
+- Block this with `focusProperties { canFocus = false }` and only enable on click.
 - Some MediaTek-based TVs may have compatibility issues with certain USB audio devices.
 
 ## Performance Optimization Tips
 
 ### GPU Acceleration
 
-The SDK uses GPU acceleration by default. If issues occur on low-end devices:
+The SDK uses GPU acceleration by default. If issues occur on some low-end devices:
 
 ```kotlin
 // Check logs when GPU issues occur
@@ -153,9 +195,9 @@ adb logcat | grep "Klleon_"
 
 ### Battery Optimization
 
-Battery consumption may be significant during prolonged use:
+Battery consumption may be high during extended use:
 - Call `finish()` when not in use
-- Recommended to stop processing when the screen is off
+- Recommend stopping processing when screen is off
 - Control video as needed with `pauseVideo()` / `resumeVideo()`
 
 ## Support

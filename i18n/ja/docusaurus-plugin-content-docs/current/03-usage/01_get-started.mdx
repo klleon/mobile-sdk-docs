@@ -11,22 +11,22 @@ sidebar_label: はじめに
 
 Klleon Ondevice SDKを使用する前に、以下の準備が必要です：
 
-1.  **Kleon Studioアカウント**: SDK機能を使用するには [Kleon Studio](https://www.studio.klleon.io/) アカウントが必要です。アカウントをお持ちでない場合は、まずご登録ください。
-2.  **SDKキーの発行**: ドメイン登録後、そのドメインで使用する固有の `sdk_key` が発行されます。このキーはSDKの初期化に必要です。
-3.  **アバターID**: 使用するAIアバターの `avatarId` が必要です。
+1.  **Kleon Studioアカウント**: SDK機能を使用するには[Kleon Studio](https://www.studio.klleon.io/)アカウントが必要です。アカウントをお持ちでない場合は、先にご登録ください。
+2.  **SDKキーの発行**: ドメイン登録後、該当ドメインで使用する固有の`sdk_key`が発行されます。このキーはSDKの初期化に必要です。
+3.  **アバターID**: 使用するAIアバターの`avatarId`が必要です。
 
-## パーミッション
+## 権限
 
 ### AndroidManifest.xml
 
-`AndroidManifest.xml` に必要なパーミッションを追加してください：
+`AndroidManifest.xml`に必要な権限を追加してください：
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-### コードでのパーミッション処理
+### コードでの権限処理
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -60,11 +60,11 @@ class MainActivity : ComponentActivity() {
         val deniedPermissions = permissions.filter { !it.value }.keys
 
         if (deniedPermissions.isEmpty()) {
-            Log.d("MainActivity", "すべてのパーミッションが許可されました")
+            Log.d("MainActivity", "すべての権限が許可されました")
             initializeApp()
         } else {
-            Log.w("MainActivity", "パーミッションが拒否されました: $deniedPermissions")
-            // 拒否されたパーミッションの処理
+            Log.w("MainActivity", "権限が拒否されました: $deniedPermissions")
+            // 拒否された権限の処理
         }
     }
 }
@@ -105,14 +105,15 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // リソースをキャッシュディレクトリにコピー
-        resourceManager.download(
+        // リソース初期化（キャッシュコピー + YUV変換 + メモリ読み込み）
+        resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
             styleFileName = "loop_sample.style",
+            avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play() 呼び出し可能
+                // リソース準備完了 — play()の呼び出しが可能です
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -122,32 +123,32 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-### SDKの開始 (play)
+### SDKの開始（play）
 
 ```kotlin
 // SDKの開始
 klleonOndeviceSdk.play(
     context = this,                    // Context
-    klleonSdkViewInstance = sdkView,   // KlleonSdkView インスタンス
-    sdkKey = "YOUR_SDK_KEY",           // SDK キー
-    avatarId = "character_001",        // アバター ID
+    klleonSdkViewInstance = sdkView,   // KlleonSdkViewインスタンス
+    sdkKey = "YOUR_SDK_KEY",           // SDKキー
+    avatarId = "character_001",        // アバターID
     language = "ko_kr"                 // 言語 (ko_kr, en_us, ja_jp)
 )
 ```
 
-**パラメータ:**
+**パラメータ：**
 | パラメータ | 型 | 必須 | 説明 |
-|---------|------|------|------|
+|-----------|------|------|------|
 | `context` | Context | O | 現在のコンテキスト |
 | `klleonSdkViewInstance` | KlleonSdkView? | O | レンダリングビューインスタンス |
 | `sdkKey` | String | O | SDK認証キー |
 | `avatarId` | String | O | AIアバターID |
-| `language` | String | O | 言語コード (`ko_kr`, `en_us`, `ja_jp`) |
+| `language` | String | O | 言語コード（`ko_kr`, `en_us`, `ja_jp`） |
 
 ## 次のステップ
 
 設定完了後：
 
-1. 使用可能なメソッドは [APIリファレンス](api-reference) を確認してください
-2. 最適な統合のために [ガイド](../guides/guides) に従ってください
-3. 実装パターンは [使用例](../examples/examples) を確認してください
+1. 使用可能なメソッドは[APIリファレンス](api-reference)をご確認ください
+2. 最適な統合のために[ガイド](../guides/guides)に従ってください
+3. 実装パターンは[使用例](../examples/examples)をご確認ください

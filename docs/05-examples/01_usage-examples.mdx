@@ -46,12 +46,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 리소스를 캐시 디렉토리로 복사
-        resourceManager.download(
+        // 리소스 초기화 (캐시 복사 + YUV 변환 + 메모리 적재)
+        resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
             styleFileName = "loop_sample.style",
+            avatarId = "character_001",
             onSuccess = {
                 // 리소스 준비 완료 — play() 호출 가능
             },
@@ -324,6 +325,42 @@ fun SimpleSDKIntegration() {
             enabled = sdkView != null
         ) {
             Text("SDK 시작")
+        }
+    }
+}
+```
+
+## 아바타 전환 예제
+
+`init()`은 아바타 변경을 자동 감지합니다. 같은 아바타면 버퍼를 즉시 재사용하고, 다른 아바타면 이전 버퍼를 해제 후 새로 할당합니다.
+
+```kotlin
+class CharacterSelectActivity : ComponentActivity() {
+
+    fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
+        // init()이 avatarId를 비교하여 자동으로 버퍼 재사용/전환 처리
+        // 같은 아바타: 즉시 onSuccess (0ms)
+        // 다른 아바타: 이전 버퍼 해제 + 새 할당
+        ResourceManager.init(
+            context = this,
+            mp4FileName = avatarMp4,
+            npzFileName = avatarNpz,
+            avatarId = avatarId,
+            onSuccess = {
+                // 리소스 준비 완료 — ChatActivity로 이동
+                startActivity(Intent(this, ChatActivity::class.java))
+            },
+            onError = { error ->
+                Log.e("CharacterSelect", "리소스 준비 실패", error)
+            }
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // play() 전 이탈 시 메모리 해제
+        if (!KlleonOndeviceSdk.playing) {
+            ResourceManager.deinit()
         }
     }
 }

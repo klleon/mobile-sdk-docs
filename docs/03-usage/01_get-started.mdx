@@ -105,12 +105,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 리소스를 캐시 디렉토리로 복사
-        resourceManager.download(
+        // 리소스 초기화 (캐시 복사 + YUV 변환 + 메모리 적재)
+        resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
             styleFileName = "loop_sample.style",
+            avatarId = "character_001",
             onSuccess = {
                 // 리소스 준비 완료 — play() 호출 가능
             },

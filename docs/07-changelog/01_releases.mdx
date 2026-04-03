@@ -11,7 +11,33 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ---
 
-## v0.3.4 (Latest)
+## v0.3.6 (Latest)
+
+**릴리스일**: 2026년 4월
+
+### 변경사항
+- `ResourceManager.init()`에 `avatarId` 파라미터 추가
+- YUV buffer lifecycle 분리: 동일 아바타 재진입 시 버퍼 재사용 (0ms)
+- 다른 아바타 전환 시 3초 쿨다운 (저사양 TV SoC OOM 방어)
+- `finish()` 시 버퍼 유지 (`resetState`) + 앱 종료 시 완전 해제 (`deinit`)
+- `onTrimMemory` / `onLowMemory` 기반 백그라운드 메모리 자동 해제
+- `init()` 내부 IO 코루틴 전환 (Main 스레드 블로킹 제거)
+
+---
+
+## v0.3.5
+
+**릴리스일**: 2026년 4월
+
+### 변경사항
+- RAW YUV 비디오 디코딩 파이프라인 구현 (MP4→YUV 사전 변환)
+- NV12/I420 색상 포맷 자동 감지 및 변환
+- Activity 라이프사이클 기반 네이티브 메모리 해제
+- Android 메모리 모니터링 스킬 추가
+
+---
+
+## v0.3.4
 
 **릴리스일**: 2026년 3월
 

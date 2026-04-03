@@ -9,7 +9,7 @@ sidebar_label: setup
 
 ## 1) 要件
 
-- **SDKバージョン**: 0.3.4
+- **SDKバージョン**: 0.3.6
 - **最小SDK**: 26 (Android 8.0)
 - **ターゲットSDK**: 36
 - **対応ABI**: arm64-v8a, armeabi-v7a
@@ -18,21 +18,21 @@ sidebar_label: setup
 
 ### リソース
 
-SDKにはビデオファイル(`.mp4`)と顔モデルファイル(`.npz`)が必要です。
-これらのファイルを`assets`(`src/main/assets`)フォルダに配置し、`ResourceManager.download()`を呼び出してキャッシュディレクトリにコピーします。
+SDKにはビデオファイル（`.mp4`）とフェイスモデルファイル（`.npz`）が必要です。
+これらのファイルを`assets`（`src/main/assets`）フォルダに配置し、`ResourceManager.init()`を呼び出してキャッシュコピーおよび初期化を行います。
 
 ```kotlin
 import io.klleon.ondevice.ResourceManager
 
 val resourceManager = ResourceManager()
 
-resourceManager.download(
+ResourceManager.init(
     context = this,
     mp4FileName = "loop_sample.mp4",
     npzFileName = "loop_sample.npz",
+    avatarId = "character_001",
     onSuccess = {
         // リソース準備完了 — play()の呼び出しが可能です
-        // resourceManager.vpPath, resourceManager.fpPath が自動設定されます
     },
     onError = { error ->
         Log.e("Setup", "リソース準備失敗", error)
@@ -41,11 +41,11 @@ resourceManager.download(
 ```
 
 :::info
-`download()` 完了後、`vpPath`（ビデオパス）と`fpPath`（顔モデルパス）が自動設定されます。
-`play()` を呼び出す前に、必ず `download()` が完了している必要があります。
+`init()`完了後、内部パスが自動的に設定されます。
+`play()`を呼び出す前に、必ず`init()`の`onSuccess`コールバックが呼び出される必要があります。
 :::
 
-## 2) Android構成
+## 2) Android設定
 
 ```kotlin
 android {
@@ -71,9 +71,9 @@ android {
 ```kotlin
 dependencies {
     // SDK
-    implementation("io.klleon:ondevice-sdk:0.3.4")
+    implementation("io.klleon:ondevice-sdk:0.3.6")
 
-    // Coroutines (SDK必須)
+    // Coroutines（SDK必須）
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
@@ -90,7 +90,7 @@ SDK AARには以下のライブラリが含まれています：
 - ONNX Runtime
 - Agora RTC
 
-アプリでOkHttpまたはOkioを使用するライブラリ（例：Coil）がある場合、バージョンの競合が発生する可能性があります。その場合は`RuntimeClasspath`から該当グループをexcludeしてください：
+アプリでOkHttpまたはOkioを使用するライブラリ（例：Coil）がある場合、バージョン競合が発生する可能性があります。その場合、`RuntimeClasspath`から該当グループをexcludeしてください：
 ```kotlin
 configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true) }.configureEach {
     exclude(group = "com.squareup.okhttp3")
@@ -101,6 +101,6 @@ configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true
 
 ## 4) ProGuard / R8
 
-SDK AARに必要なProGuard/R8ルールが含まれているため、**別途の設定は不要です。**
+SDK AARに必要なProGuard/R8ルールが含まれているため、**追加の設定は不要です。**
 
-`UnsatisfiedLinkError` が発生した場合は、上記Android構成の `jniLibs.pickFirsts` 設定を確認してください。
+`UnsatisfiedLinkError`が発生した場合は、上記Android設定の`jniLibs.pickFirsts`設定を確認してください。

@@ -46,14 +46,15 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // リソースをキャッシュディレクトリにコピー
-        resourceManager.download(
+        // リソース初期化（キャッシュコピー + YUV変換 + メモリ読み込み）
+        resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
             npzFileName = "loop_sample.npz",
             styleFileName = "loop_sample.style",
+            avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play() 呼び出し可能
+                // リソース準備完了 — play()の呼び出しが可能です
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -89,7 +90,7 @@ fun WorkerScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDK状態の表示
+        // SDK状態表示
         Card(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -138,7 +139,7 @@ fun WorkerScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // コントロールボタン
+            // 制御ボタン
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -225,7 +226,7 @@ fun WorkerScreen(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("英語に切替")
+                    Text("英語に切り替え")
                 }
             }
         }
@@ -329,6 +330,42 @@ fun SimpleSDKIntegration() {
 }
 ```
 
+## アバター切り替え例
+
+`init()`はアバター変更を自動検出します。同じアバターであればバッファを即座に再利用し、異なるアバターであれば以前のバッファを解放後に新しく割り当てます。
+
+```kotlin
+class CharacterSelectActivity : ComponentActivity() {
+
+    fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
+        // init()がavatarIdを比較して自動的にバッファ再利用/切り替えを処理
+        // 同じアバター：即座にonSuccess（0ms）
+        // 異なるアバター：以前のバッファ解放 + 新規割り当て
+        ResourceManager.init(
+            context = this,
+            mp4FileName = avatarMp4,
+            npzFileName = avatarNpz,
+            avatarId = avatarId,
+            onSuccess = {
+                // リソース準備完了 — ChatActivityに移動
+                startActivity(Intent(this, ChatActivity::class.java))
+            },
+            onError = { error ->
+                Log.e("CharacterSelect", "リソース準備失敗", error)
+            }
+        )
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // play()前に離脱した場合のメモリ解放
+        if (!KlleonOndeviceSdk.playing) {
+            ResourceManager.deinit()
+        }
+    }
+}
+```
+
 ## 状態監視パターン
 
 ```kotlin
@@ -342,7 +379,7 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
                 val json = JSONObject(state)
                 "状態: ${json.optString("chat_type")} - ${json.getString("message")}"
             } catch (e: Exception) {
-                "生データ: $state"
+                "生の状態: $state"
             }
         }
     }
