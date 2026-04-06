@@ -152,13 +152,15 @@ fun WorkerScreen(
                 Button(
                     onClick = {
                         workerView?.let { view ->
-                            klleonOndeviceSdk.play(
-                                context = context,
-                                klleonSdkViewInstance = view,
-                                sdkKey = "YOUR_SDK_KEY",
-                                avatarId = "character_001",
-                                language = "ko_kr"
-                            )
+                            CoroutineScope(Dispatchers.IO).launch {
+                                klleonOndeviceSdk.play(
+                                    context = context,
+                                    klleonSdkViewInstance = view,
+                                    sdkKey = "YOUR_SDK_KEY",
+                                    avatarId = "character_001",
+                                    language = "ko_kr"
+                                )
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -168,7 +170,11 @@ fun WorkerScreen(
                 }
 
                 Button(
-                    onClick = { klleonOndeviceSdk.finish() },
+                    onClick = {
+                        CoroutineScope(Dispatchers.Default).launch {
+                            klleonOndeviceSdk.finish()
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("종료")
@@ -317,13 +323,15 @@ fun SimpleSDKIntegration() {
         Button(
             onClick = {
                 sdkView?.let { view ->
-                    klleonOndeviceSdk.play(
-                        context = context,
-                        klleonSdkViewInstance = view,
-                        sdkKey = "YOUR_SDK_KEY",
-                        avatarId = "character_001",
-                        language = "ko"
-                    )
+                    CoroutineScope(Dispatchers.IO).launch {
+                        klleonOndeviceSdk.play(
+                            context = context,
+                            klleonSdkViewInstance = view,
+                            sdkKey = "YOUR_SDK_KEY",
+                            avatarId = "character_001",
+                            language = "ko"
+                        )
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),

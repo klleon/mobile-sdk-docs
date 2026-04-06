@@ -1,11 +1,11 @@
 ---
 id: examples
 sidebar_position: 4
-title: android-examples
+title: Androidサンプル
 sidebar_label: android examples
 ---
 
-# Android使用例
+# Androidの使用例
 
 ## MainActivityの実装
 
@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // リソース初期化（キャッシュコピー + YUV変換 + メモリ読み込み）
+        // リソース初期化（キャッシュコピー + YUV変換 + メモリロード）
         resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play()を呼び出し可能
+                // リソース準備完了 — play()の呼び出しが可能です
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -83,7 +83,7 @@ fun WorkerScreen(
     var workerView by remember { mutableStateOf<KlleonSdkView?>(null) }
     var messageData by remember { mutableStateOf("") }
 
-    // SDK状態を収集
+    // SDK状態の収集
     val accumulatedMessages by viewModel.accumulatedMessages.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -95,7 +95,7 @@ fun WorkerScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDK状態表示
+        // SDK状態の表示
         Card(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -152,13 +152,15 @@ fun WorkerScreen(
                 Button(
                     onClick = {
                         workerView?.let { view ->
-                            klleonOndeviceSdk.play(
-                                context = context,
-                                klleonSdkViewInstance = view,
-                                sdkKey = "YOUR_SDK_KEY",
-                                avatarId = "character_001",
-                                language = "ko_kr"
-                            )
+                            CoroutineScope(Dispatchers.IO).launch {
+                                klleonOndeviceSdk.play(
+                                    context = context,
+                                    klleonSdkViewInstance = view,
+                                    sdkKey = "YOUR_SDK_KEY",
+                                    avatarId = "character_001",
+                                    language = "ko_kr"
+                                )
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -168,7 +170,11 @@ fun WorkerScreen(
                 }
 
                 Button(
-                    onClick = { klleonOndeviceSdk.finish() },
+                    onClick = {
+                        CoroutineScope(Dispatchers.Default).launch {
+                            klleonOndeviceSdk.finish()
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("終了")
@@ -231,7 +237,7 @@ fun WorkerScreen(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("英語切替")
+                    Text("英語に切替")
                 }
             }
         }
@@ -259,7 +265,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT 中間] $message"
+                        "STT_PARTIAL" -> "[STT中間] $message"
                         "RESPONSE" -> "[アバター] $message"
                         else -> message
                     }
@@ -285,7 +291,7 @@ class WorkerViewModel : ViewModel() {
 }
 ```
 
-## 最小統合例
+## 最小統合サンプル
 
 シンプルな実装の場合：
 
@@ -301,7 +307,7 @@ fun SimpleSDKIntegration() {
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDKビュー
+        // SDK View
         AndroidView(
             factory = { ctx ->
                 KlleonSdkView(ctx).also { view ->
@@ -317,13 +323,15 @@ fun SimpleSDKIntegration() {
         Button(
             onClick = {
                 sdkView?.let { view ->
-                    klleonOndeviceSdk.play(
-                        context = context,
-                        klleonSdkViewInstance = view,
-                        sdkKey = "YOUR_SDK_KEY",
-                        avatarId = "character_001",
-                        language = "ko"
-                    )
+                    CoroutineScope(Dispatchers.IO).launch {
+                        klleonOndeviceSdk.play(
+                            context = context,
+                            klleonSdkViewInstance = view,
+                            sdkKey = "YOUR_SDK_KEY",
+                            avatarId = "character_001",
+                            language = "ko"
+                        )
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -335,24 +343,24 @@ fun SimpleSDKIntegration() {
 }
 ```
 
-## アバター切替例
+## アバター切り替えの例
 
-`init()`はアバター変更を自動検知します。同じアバターの場合はバッファを即座に再利用し、異なるアバターの場合は以前のバッファを解放して新しく割り当てます。
+`init()`はアバターの変更を自動検出します。同じアバターであればバッファを即座に再利用し、異なるアバターであれば以前のバッファを解放後に新たに割り当てます。
 
 ```kotlin
 class CharacterSelectActivity : ComponentActivity() {
 
     fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
-        // init()がavatarIdを比較して自動的にバッファ再利用/切替を処理
-        // 同じアバター：即座にonSuccess（0ms）
-        // 異なるアバター：以前のバッファ解放 + 新規割り当て
+        // init()がavatarIdを比較して自動でバッファの再利用/切り替えを処理
+        // 同じアバター: 即座にonSuccess（0ms）
+        // 異なるアバター: 以前のバッファ解放 + 新規割り当て
         ResourceManager.init(
             context = this,
             mp4FileName = avatarMp4,
             npzFileName = avatarNpz,
             avatarId = avatarId,
             onSuccess = {
-                // リソース準備完了 — ChatActivityに遷移
+                // リソース準備完了 — ChatActivityへ遷移
                 startActivity(Intent(this, ChatActivity::class.java))
             },
             onError = { error ->
@@ -363,7 +371,7 @@ class CharacterSelectActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // play()前に離脱した場合、メモリを解放
+        // play()前に離脱した場合のメモリ解放
         if (!KlleonOndeviceSdk.playing) {
             ResourceManager.deinit()
         }
@@ -371,7 +379,7 @@ class CharacterSelectActivity : ComponentActivity() {
 }
 ```
 
-## 状態観察パターン
+## 状態監視パターン
 
 ```kotlin
 @Composable

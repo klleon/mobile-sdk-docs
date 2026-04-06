@@ -12,7 +12,7 @@ sidebar_label: setup
 - **SDK Version**: 0.3.6
 - **Minimum SDK**: 26 (Android 8.0)
 - **Target SDK**: 36
-- **Supported ABIs**: arm64-v8a, armeabi-v7a
+- **Supported ABI**: arm64-v8a, armeabi-v7a
 
 ---
 
@@ -32,7 +32,7 @@ ResourceManager.init(
     npzFileName = "loop_sample.npz",
     avatarId = "character_001",
     onSuccess = {
-        // Resources ready — play() can now be called
+        // Resources ready — you can now call play()
     },
     onError = { error ->
         Log.e("Setup", "Resource preparation failed", error)
@@ -42,7 +42,7 @@ ResourceManager.init(
 
 :::info
 Internal paths are automatically configured after `init()` completes.
-The `onSuccess` callback of `init()` must be invoked before calling `play()`.
+The `onSuccess` callback of `init()` must be called before invoking `play()`.
 :::
 
 ## 2) Android Configuration
@@ -80,7 +80,7 @@ dependencies {
 ```
 
 :::info Bundled Libraries
-The SDK AAR includes the following libraries:
+SDK AAR includes the following libraries:
 - OkHttp, Okio, Retrofit
 - Jackson (Core, Module)
 - TensorFlow Lite
@@ -90,7 +90,7 @@ The SDK AAR includes the following libraries:
 - ONNX Runtime
 - Agora RTC
 
-If your app uses libraries that depend on OkHttp or Okio (e.g., Coil), version conflicts may occur. In that case, exclude the relevant groups from `RuntimeClasspath`:
+If your app uses libraries that depend on OkHttp or Okio (e.g., Coil), version conflicts may occur. In that case, exclude those groups from `RuntimeClasspath`:
 ```kotlin
 configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true) }.configureEach {
     exclude(group = "com.squareup.okhttp3")
@@ -103,4 +103,4 @@ configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true
 
 The SDK AAR includes the necessary ProGuard/R8 rules, so **no additional configuration is required.**
 
-If you encounter an `UnsatisfiedLinkError`, verify the `jniLibs.pickFirsts` setting in the Android configuration above.
+If you encounter an `UnsatisfiedLinkError`, check the `jniLibs.pickFirsts` setting in the Android configuration above.

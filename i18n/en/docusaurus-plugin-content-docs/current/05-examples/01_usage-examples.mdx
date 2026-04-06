@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // Resources ready — play() can now be called
+                // Resources ready — you can now call play()
             },
             onError = { error ->
                 Log.e("MainActivity", "Resource preparation failed", error)
@@ -152,13 +152,15 @@ fun WorkerScreen(
                 Button(
                     onClick = {
                         workerView?.let { view ->
-                            klleonOndeviceSdk.play(
-                                context = context,
-                                klleonSdkViewInstance = view,
-                                sdkKey = "YOUR_SDK_KEY",
-                                avatarId = "character_001",
-                                language = "ko_kr"
-                            )
+                            CoroutineScope(Dispatchers.IO).launch {
+                                klleonOndeviceSdk.play(
+                                    context = context,
+                                    klleonSdkViewInstance = view,
+                                    sdkKey = "YOUR_SDK_KEY",
+                                    avatarId = "character_001",
+                                    language = "ko_kr"
+                                )
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -168,7 +170,11 @@ fun WorkerScreen(
                 }
 
                 Button(
-                    onClick = { klleonOndeviceSdk.finish() },
+                    onClick = {
+                        CoroutineScope(Dispatchers.Default).launch {
+                            klleonOndeviceSdk.finish()
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("Stop")
@@ -259,7 +265,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT Interim] $message"
+                        "STT_PARTIAL" -> "[STT Partial] $message"
                         "RESPONSE" -> "[Avatar] $message"
                         else -> message
                     }
@@ -317,13 +323,15 @@ fun SimpleSDKIntegration() {
         Button(
             onClick = {
                 sdkView?.let { view ->
-                    klleonOndeviceSdk.play(
-                        context = context,
-                        klleonSdkViewInstance = view,
-                        sdkKey = "YOUR_SDK_KEY",
-                        avatarId = "character_001",
-                        language = "ko"
-                    )
+                    CoroutineScope(Dispatchers.IO).launch {
+                        klleonOndeviceSdk.play(
+                            context = context,
+                            klleonSdkViewInstance = view,
+                            sdkKey = "YOUR_SDK_KEY",
+                            avatarId = "character_001",
+                            language = "ko"
+                        )
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -337,7 +345,7 @@ fun SimpleSDKIntegration() {
 
 ## Avatar Switching Example
 
-`init()` automatically detects avatar changes. For the same avatar, buffers are immediately reused; for a different avatar, previous buffers are released and new ones are allocated.
+`init()` automatically detects avatar changes. If it's the same avatar, the buffer is immediately reused; if it's a different avatar, the previous buffer is released and a new one is allocated.
 
 ```kotlin
 class CharacterSelectActivity : ComponentActivity() {
@@ -345,7 +353,7 @@ class CharacterSelectActivity : ComponentActivity() {
     fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
         // init() compares avatarId and automatically handles buffer reuse/switching
         // Same avatar: immediate onSuccess (0ms)
-        // Different avatar: release previous buffer + allocate new
+        // Different avatar: previous buffer released + new allocation
         ResourceManager.init(
             context = this,
             mp4FileName = avatarMp4,

@@ -11,7 +11,23 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ---
 
-## v0.3.6 (Latest)
+## v0.4.0 (Latest)
+
+**릴리스일**: 2026년 4월
+
+### Breaking Changes
+- `play()`, `finish()` → `suspend fun`으로 변경 (코루틴 내에서 호출 필요)
+- `KlleonOndeviceSdk.stopping` companion 프로퍼티 제거 → `isStopping` 인스턴스 프로퍼티로 대체
+
+### 변경사항
+- `BaseElement.stop()` runBlocking 제거: `withTimeout(2s)` + 강제 cancel 폴백
+- `stopMutex` 도입: `stop()` 동시 진입 방어 (ANR/데드락/double release 방지)
+- `awaitFinish()` 추가: 빠른 재진입(finish → play) 시 리소스 경합 방지
+- 미사용 `bridgeJob` 코드 제거
+
+---
+
+## v0.3.6
 
 **릴리스일**: 2026년 4월
 

@@ -94,8 +94,10 @@ resourceManager.init(
     styleFileName = "loop_sample.style",
     avatarId = "character_001",
     onSuccess = {
-        // 준비 완료 — 이제 play() 호출 가능
-        klleonOndeviceSdk.play(context, sdkView, sdkKey, avatarId, language)
+        // 준비 완료 — play()는 suspend이므로 코루틴에서 호출
+        CoroutineScope(Dispatchers.IO).launch {
+            klleonOndeviceSdk.play(context, sdkView, sdkKey, avatarId, language)
+        }
     },
     onError = { error ->
         Log.e("SDK", "리소스 준비 실패", error)
@@ -131,10 +133,10 @@ resourceManager.deinit()
 
 ### play()
 
-AI 아바타 비디오 재생을 시작합니다.
+AI 아바타 비디오 재생을 시작합니다. `suspend` 함수이므로 코루틴 내에서 호출해야 합니다.
 
 ```kotlin
-klleonOndeviceSdk.play(
+suspend fun play(
     context: Context,
     klleonSdkViewInstance: KlleonSdkView?,
     sdkKey: String,
@@ -154,14 +156,16 @@ klleonOndeviceSdk.play(
 
 **예제:**
 ```kotlin
-workerView?.let { view ->
-    klleonOndeviceSdk.play(
-        context = this,
-        klleonSdkViewInstance = view,
-        sdkKey = "YOUR_SDK_KEY",
-        avatarId = "character_001",
-        language = "ko_kr"
-    )
+CoroutineScope(Dispatchers.IO).launch {
+    workerView?.let { view ->
+        klleonOndeviceSdk.play(
+            context = this@Activity,
+            klleonSdkViewInstance = view,
+            sdkKey = "YOUR_SDK_KEY",
+            avatarId = "character_001",
+            language = "ko_kr"
+        )
+    }
 }
 ```
 
@@ -175,10 +179,27 @@ klleonOndeviceSdk.connect()
 
 ### finish()
 
-SDK를 중지하고 모든 리소스를 정리합니다.
+SDK를 중지하고 모든 리소스를 정리합니다. `suspend` 함수이므로 코루틴 내에서 호출해야 합니다.
+내부 버퍼는 동일 아바타 재진입 시 재사용을 위해 유지됩니다 (soft reset).
 
 ```kotlin
-klleonOndeviceSdk.finish()
+// Activity 종료 시
+CoroutineScope(Dispatchers.Default).launch {
+    klleonOndeviceSdk.finish()
+}
+```
+
+### awaitFinish()
+
+진행 중인 `finish()`가 완료될 때까지 대기합니다. 종료 중이 아니면 즉시 반환됩니다.
+`finish()` 후 빠르게 `play()`를 재호출하는 경우, `ResourceManager.init()` 전에 호출하여 리소스 경합을 방지합니다.
+
+```kotlin
+// 빠른 재진입 시
+CoroutineScope(Dispatchers.Default).launch {
+    klleonOndeviceSdk.awaitFinish()  // 이전 종료 완료 대기
+    ResourceManager.init(context, ...)
+}
 ```
 
 ---
@@ -559,8 +580,13 @@ var klleonSdkView: KlleonSdkView?
 |---------|------|------|
 | `VERSION` | String | SDK 버전 |
 | `playing` | Boolean | SDK 재생 상태 |
-| `stopping` | Boolean | SDK 정지 중 상태 |
 | `sendVoice` | Boolean | 음성 전송 상태 |
+
+## 인스턴스 프로퍼티
+
+| 프로퍼티 | 타입 | 설명 |
+|---------|------|------|
+| `isStopping` | Boolean | SDK가 현재 종료 중인지 여부 (`finish()` 진행 중이면 `true`) |
 
 ---
 
@@ -579,14 +605,35 @@ try {
 
 ## 라이프사이클 관리
 
+`play()`와 `finish()`는 `suspend` 함수입니다. Activity 라이프사이클에서는 코루틴으로 래핑하여 호출합니다.
+
 ```kotlin
-class MainActivity : ComponentActivity() {
-    private val klleonOndeviceSdk = SdkConfig.sdk
+class ChatActivity : ComponentActivity() {
+    private val sdk = SdkConfig.sdk
 
     override fun onDestroy() {
         super.onDestroy()
-        klleonOndeviceSdk.finish()  // SDK 정지 (버퍼는 재사용을 위해 유지)
-        ResourceManager.deinit()    // 앱 종료 시 버퍼 완전 해제
+        // finish()는 suspend이므로 코루틴에서 실행
+        CoroutineScope(Dispatchers.Default).launch {
+            sdk.finish()  // SDK 정지 (버퍼는 재사용을 위해 유지)
+        }
+        ResourceManager.deinit()  // 앱 완전 종료 시에만 호출
     }
+}
+```
+
+### 빠른 재진입 (finish → play)
+
+`finish()` 후 곧바로 `play()`를 호출하면 리소스 경합이 발생할 수 있습니다.
+`awaitFinish()`를 사용하여 이전 종료가 완료된 후 진행하세요:
+
+```kotlin
+// 캐릭터 선택 화면에서 새 아바타 시작 시
+CoroutineScope(Dispatchers.Default).launch {
+    sdk.awaitFinish()  // 이전 finish()가 진행 중이면 완료 대기
+    ResourceManager.init(context, mp4, npz, style, avatarId,
+        onSuccess = { /* ChatActivity 시작 → play() */ },
+        onError = { /* 에러 처리 */ }
+    )
 }
 ```

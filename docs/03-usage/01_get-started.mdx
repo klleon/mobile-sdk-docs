@@ -131,14 +131,16 @@ class MainActivity : ComponentActivity() {
 ### SDK 시작 (play)
 
 ```kotlin
-// SDK 시작
-klleonOndeviceSdk.play(
-    context = this,                    // Context
-    klleonSdkViewInstance = sdkView,   // KlleonSdkView 인스턴스
-    sdkKey = "YOUR_SDK_KEY",           // SDK 키
-    avatarId = "character_001",        // 아바타 ID
-    language = "ko_kr"                 // 언어 (ko_kr, en_us, ja_jp)
-)
+// play()는 suspend 함수이므로 코루틴에서 호출
+CoroutineScope(Dispatchers.IO).launch {
+    klleonOndeviceSdk.play(
+        context = this@Activity,               // Context
+        klleonSdkViewInstance = sdkView,       // KlleonSdkView 인스턴스
+        sdkKey = "YOUR_SDK_KEY",               // SDK 키
+        avatarId = "character_001",            // 아바타 ID
+        language = "ko_kr"                     // 언어 (ko_kr, en_us, ja_jp)
+    )
+}
 ```
 
 **매개변수:**

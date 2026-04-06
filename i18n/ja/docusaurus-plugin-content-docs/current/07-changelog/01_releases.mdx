@@ -7,21 +7,37 @@ sidebar_label: リリースノート
 
 # リリースノート
 
-Klleon Ondevice SDKのバージョン別変更事項です。
+Klleon Ondevice SDKのバージョン別変更履歴です。
 
 ---
 
-## v0.3.6 (Latest)
+## v0.4.0 (Latest)
 
 **リリース日**: 2026年4月
 
-### 変更事項
+### Breaking Changes
+- `play()`、`finish()` → `suspend fun`に変更（コルーチン内での呼び出しが必要です）
+- `KlleonOndeviceSdk.stopping` companionプロパティ削除 → `isStopping` インスタンスプロパティに置き換え
+
+### 変更点
+- `BaseElement.stop()`から`runBlocking`を削除：`withTimeout(2s)` + 強制キャンセルフォールバック
+- `stopMutex`導入：`stop()`の同時進入を防止（ANR/デッドロック/二重解放防止）
+- `awaitFinish()`追加：高速再進入（finish → play）時のリソース競合防止
+- 未使用の`bridgeJob`コードを削除
+
+---
+
+## v0.3.6
+
+**リリース日**: 2026年4月
+
+### 変更点
 - `ResourceManager.init()`に`avatarId`パラメータを追加
-- YUVバッファライフサイクル分離：同一アバター再入時にバッファ再利用（0ms）
-- 別のアバターへの切り替え時に3秒クールダウン（低スペックTV SoC OOM防御）
+- YUVバッファライフサイクル分離：同一アバター再進入時にバッファ再利用（0ms）
+- アバター切り替え時の3秒クールダウン（低スペックTV SoC OOM防御）
 - `finish()`時にバッファ保持（`resetState`）+ アプリ終了時に完全解放（`deinit`）
-- `onTrimMemory` / `onLowMemory`ベースのバックグラウンドメモリ自動解放
-- `init()`内部IOコルーチン切り替え（メインスレッドブロッキング除去）
+- `onTrimMemory` / `onLowMemory`によるバックグラウンドメモリ自動解放
+- `init()`内部IOコルーチン切り替え（Mainスレッドブロッキング除去）
 
 ---
 
@@ -29,7 +45,7 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2026年4月
 
-### 変更事項
+### 変更点
 - RAW YUVビデオデコーディングパイプライン実装（MP4→YUV事前変換）
 - NV12/I420カラーフォーマット自動検出および変換
 - Activityライフサイクルベースのネイティブメモリ解放
@@ -41,10 +57,10 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2026年3月
 
-### 変更事項
-- StyleEncoderランタイム推論無効化（.styleプリロード時にモデルロードをスキップ）
+### 変更点
+- StyleEncoderランタイム推論無効化（.style事前ロード時にモデルロードスキップ）
 - SdkInitializer.validate()呼び出し復元
-- サンプルアプリのリソースダウンロードフロー改善
+- サンプルアプリリソースダウンロードフロー改善
 
 ---
 
@@ -52,10 +68,10 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2026年3月
 
-### 変更事項
-- 事前計算された.styleファイルローディング（StyleFileLoader追加）
-- style_encoder_float32.binアセット削除（〜35MB AARサイズ削減）
-- play()パラメータの内部変数化（ttsModelUse、mmapEnabled、tokenServerUrl削除）
+### 変更点
+- 事前計算された.styleファイルロード（StyleFileLoader追加）
+- style_encoder_float32.binアセット削除（～35MB AARサイズ削減）
+- play()パラメータ内部変数化（ttsModelUse、mmapEnabled、tokenServerUrl削除）
 - WebSocket音声シグナル追加（SPEECH_START、SPEECH_END、STOP_RESPONSE_MESSAGE）
 - ResourceManager .styleファイルダウンロードサポート
 
@@ -65,7 +81,7 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2026年3月
 
-### 変更事項
+### 変更点
 - Oboe入力フォーマットをFloatからI16に変更（USBマイク互換性確保）
 - I16 → Float32ランタイム変換ロジック追加
 - publish.sh STTプロバイダー別デプロイサポート
@@ -76,10 +92,10 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2026年3月
 
-### 変更事項
+### 変更点
 - ALWAYS_ON音声モード追加（play()後に自動開始、セッション維持）
-- CONTINUOUSモード削除およびデッドコードクリーンアップ
-- Azure STT不要なSTART_VOICE/END_VOICEシグナル削除
+- CONTINUOUSモード削除およびデッドコード整理
+- Azure STTの不要なSTART_VOICE/END_VOICEシグナル削除
 
 ---
 
@@ -87,7 +103,7 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2026年3月
 
-### 変更事項
+### 変更点
 - Azure STTトークンサーバー連携
 
 ---
@@ -97,17 +113,17 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 **リリース日**: 2026年3月
 
 ### 新機能
-- 音声認識状態通知（`STT_STATUS`）追加 — トークン待機/再接続/復旧完了状態をアプリに通知
+- 音声認識ステータス通知（`STT_STATUS`）追加 — トークン待機/再接続/復旧完了状態をアプリに通知
 
 ### バグ修正
-- 一部デバイスでのオーディオ入力ストリーム開放失敗を修正
+- 一部デバイスでオーディオ入力ストリームオープン失敗を修正
 - `play()`関数に`mmapEnabled`パラメータを追加
 
 ---
 
 ## v0.2.16
 
-### 改善事項
+### 改善点
 - STT中間結果（`STT_PARTIAL`）サポート追加
 - SDK配布方式をバンドルAARに変更（依存関係統合）
 
@@ -116,22 +132,22 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 ## v0.2.15
 
 ### 新機能
-- 音声認識の改善
+- 音声認識改善
 - アバター発話中の音声認識自動一時停止
 
 ---
 
 ## v0.2.14
 
-### 改善事項
-- USBマイク互換性の改善（MAPデフォルト無効化）
+### 改善点
+- USBマイク互換性改善（MMAPデフォルト無効化）
 
 ---
 
 ## v0.2.13
 
-### 改善事項
-- GPU互換性の修正
+### 改善点
+- GPU互換性修正
 
 ---
 
@@ -147,22 +163,22 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 ## v0.2.11
 
 ### バグ修正
-- 画面回転時のレンダリング段差（staircase artifact）を修正
+- 画面回転時のレンダリング段差（staircase artifact）修正
 
 ---
 
 ## v0.2.10
 
 ### 新機能
-- `sendStopSpeech()`: アバター発話中断機能
-- `sendChangeLanguage()`: 会話中の言語変更機能
+- `sendStopSpeech()`：アバター発話中断機能
+- `sendChangeLanguage()`：会話中の言語変更機能
 
 ---
 
 ## v0.2.9
 
 ### 新機能
-- 多言語サポート（韓国語/日本語/English）
+- 多言語サポート（韓国語/日本語/英語）
 - Android TV UI改善
 
 ---
@@ -171,14 +187,14 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 ### 新機能
 - Android TV 270度回転サポート
-- キャラクター別`characterId`の動的渡し
+- キャラクター別`characterId`動的伝達
 
 ---
 
 ## v0.2.7
 
-### 改善事項
-- USBマイクデバイス選択の改善
+### 改善点
+- USBマイクデバイス選択改善
 
 ---
 
@@ -186,7 +202,7 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 ### 新機能
 - `sendChangeLanguage()` API追加
-- STT結果処理の改善
+- STT結果処理改善
 
 ---
 
@@ -203,11 +219,11 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 ## v0.2.4
 
 ### 新機能
-- `play()` API変更: `sdkKey`、`characterId`、`language`ベースに切り替え
+- `play()` API変更：`sdkKey`、`characterId`、`language`ベースに切り替え
 
 ### バグ修正
 - Sony TV / Android 8.1互換性修正
-- 長時間使用の安定性改善
+- 長時間使用時の安定性改善
 
 ---
 
@@ -215,7 +231,7 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2025年12月
 
-### 改善事項
+### 改善点
 - セキュリティ強化
 
 ---
@@ -224,8 +240,8 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2025年11月
 
-### 改善事項
-- AI推論パフォーマンスの最適化
+### 改善点
+- AI推論パフォーマンス最適化
 
 ---
 
@@ -234,8 +250,8 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 **リリース日**: 2025年10月
 
 ### バグ修正
-- サーバー接続の安定性改善
-- WebSocket再接続ロジックの強化
+- サーバー接続安定性改善
+- WebSocket再接続ロジック強化
 
 ---
 
@@ -243,10 +259,10 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 **リリース日**: 2025年9月
 
-### 改善事項
-- モデルセキュリティの強化
-- ビデオ処理パフォーマンスの最適化
-- GPUアクセラレーションパフォーマンスの向上
+### 改善点
+- モデルセキュリティ強化
+- ビデオ処理パフォーマンス最適化
+- GPUアクセラレーションパフォーマンス向上
 
 ---
 
@@ -259,7 +275,7 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 
 ### サポート環境
 - Android 8.0+（API 26）
-- arm64-v8a, armeabi-v7a
+- arm64-v8a、armeabi-v7a
 
 
 ---
@@ -272,4 +288,4 @@ Klleon Ondevice SDKのバージョン別変更事項です。
 | 0.2.x | アクティブサポート | |
 | 0.1.x | サポート終了 | 2025年Q1終了 |
 
-最新バージョンの使用を推奨します。
+最新バージョンのご使用をお勧めします。

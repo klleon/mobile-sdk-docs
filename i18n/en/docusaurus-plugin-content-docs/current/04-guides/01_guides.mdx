@@ -6,16 +6,16 @@ sidebar_label: guides
 ---
 
 ### 1. Permission Management
-- Always check permissions before initializing the SDK
+- Always check permissions before SDK initialization
 - Handle permission denials with user-friendly messages
 - Provide clear rationale for required permissions
-- Test the permission flow across different Android versions
+- Test permission flows on various Android versions
 
 ```kotlin
 private fun showPermissionRationale() {
     Toast.makeText(
         this,
-        "Audio permission is required for this app to function properly.",
+        "Audio permission is required for this app to work properly.",
         Toast.LENGTH_LONG
     ).show()
 }
@@ -30,23 +30,27 @@ Initialize resources with `ResourceManager.init()` and only call `play()` after 
 ```
 Avatar selected  → ResourceManager.init(avatarId) → onSuccess → sdk.play() → ... → sdk.finish()
 Same avatar      → ResourceManager.init(same avatarId) → Buffer reused → Immediate onSuccess → sdk.play()
-Avatar changed   → ResourceManager.init(new avatarId) → Automatically release previous buffer + allocate new → onSuccess → sdk.play()
+Avatar changed   → ResourceManager.init(new avatarId) → Previous buffer auto-released + new allocation → onSuccess → sdk.play()
 App exit         → ResourceManager.deinit() (call in Application.onDestroy or Activity.onDestroy)
 ```
 
 #### Safe Cleanup Pattern
 
-In the Activity that uses the SDK, call `finish()` in `onDestroy()`:
+In Activities that use the SDK, call `finish()` in `onDestroy()`:
 
 ```kotlin
 // ChatActivity (SDK play screen)
 override fun onDestroy() {
     super.onDestroy()
-    klleonOndeviceSdk.finish()
+    // finish() is a suspend function, so run it in a coroutine
+    CoroutineScope(Dispatchers.Default).launch {
+        klleonOndeviceSdk.finish()
+    }
 }
 ```
 
-In cases where only `init()` is called and `play()` is called in a different Activity (such as an avatar selection screen), release memory with `deinit()` if the SDK is not playing:
+In cases where `init()` is called but `play()` is called in a different Activity,
+release memory with `deinit()` if the SDK is not playing:
 
 ```kotlin
 // CharacterActivity (avatar selection screen)
@@ -60,7 +64,7 @@ override fun onDestroy() {
 
 #### Background Memory Release
 
-When the app moves to the background, the ~1GB YUV buffer is unnecessarily retained. Register `ComponentCallbacks2` in your `Application` to release it automatically:
+When the app moves to the background, the ~1GB YUV buffer is unnecessarily occupied. Register `ComponentCallbacks2` in your `Application` to release it automatically:
 
 ```kotlin
 class MyApplication : Application() {
@@ -81,9 +85,9 @@ class MyApplication : Application() {
 
 ### 3. State Observation
 - Use a ViewModel to observe SDK state changes
-- Collect state updates in a coroutine scope
+- Collect state updates within a coroutine scope
 - Safely parse JSON responses with try-catch blocks
-- Handle state updates on the main thread for UI changes
+- Process state updates on the main thread for UI changes
 
 ### 4. Error Handling
 - Wrap SDK method calls in try-catch blocks
@@ -106,17 +110,17 @@ fun safeOperation() {
 - Use `AndroidView` in Compose to integrate `KlleonSdkView`
 - Ensure the view is properly initialized before calling SDK methods
 - Handle view lifecycle appropriately
-- Test the UI across different screen sizes and orientations
+- Test UI across different screen sizes and orientations
 
 ### 6. Voice Recognition Integration
 
-Tap a button to start voice recognition; it automatically stops when silence is detected.
+Start voice recognition on button tap; it automatically stops when silence is detected.
 
 ```kotlin
 // Start voice recognition
 val success = klleonOndeviceSdk.startVoiceRecognition()
 
-// Results are received via the sdkState Flow
+// Receive results via the sdkState Flow
 klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
@@ -125,7 +129,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
             val text = json.getString("message")
         }
         "STT_PARTIAL" -> {
-            // Interim result (for real-time display)
+            // Intermediate result (for real-time display)
             val partialText = json.getString("message")
         }
         "STT_STATUS" -> {
@@ -139,7 +143,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
 
 ### 7. Speech Interruption
 
-You can immediately stop the avatar's speech while it is speaking.
+You can immediately stop the avatar while it is speaking.
 
 ```kotlin
 klleonOndeviceSdk.sendStopSpeech()
@@ -147,11 +151,11 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ### 8. Android TV Support
 
-Consider the following when targeting TV devices:
+Consider the following for TV devices:
 
-- **Screen rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
-- **Remote key mapping**: Map directional keys to match the rotated screen
-- **Focus management**: Prevent automatic keyboard display caused by TV auto-focus
+- **Screen Rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
+- **Remote Key Mapping**: Map directional keys to match the rotated screen
+- **Focus Management**: Prevent automatic keyboard display caused by TV auto-focus
 
 ```kotlin
 // Screen rotation for TV
@@ -169,10 +173,10 @@ val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
 
 ### Threading
 ```kotlin
-// Use appropriate coroutine scope for state observation
+// Use the appropriate coroutine scope for state observation
 viewModelScope.launch {
     klleonOndeviceSdk.sdkState.collect { state ->
-        // Handle state update
+        // Handle state updates
     }
 }
 ```
@@ -182,27 +186,27 @@ viewModelScope.launch {
 ### Common Issues
 
 #### 1. Permission Denied
-**Problem**: `RECORD_AUDIO` permission not granted
+**Problem**: `RECORD_AUDIO` permission is not granted
 
 **Solution**:
 - Verify the permission is declared in `AndroidManifest.xml`
-- Check the permission handling logic
-- Test across different Android versions
+- Check permission handling logic
+- Test on various Android versions
 
 #### 2. SDK State Not Updating
 **Problem**: State observation is not working
 
 **Solution**:
-- Verify that state observation is properly set up in the ViewModel
-- Check that the coroutine scope is active
-- Confirm that state collection has started
+- Verify state observation is properly set up in the ViewModel
+- Ensure the coroutine scope is active
+- Confirm state collection has started
 
 #### 3. View Not Ready
-**Problem**: `KlleonSdkView` is not initialized before `play()` is called
+**Problem**: `KlleonSdkView` is not initialized before calling `play()`
 
 **Solution**:
 - Verify view initialization in the `AndroidView` factory
-- Enable the button only when the view is ready
+- Enable buttons only when the view is ready
 - Add null checks before calling SDK methods
 
 #### 4. USB Microphone Not Recognized
@@ -218,7 +222,7 @@ viewModelScope.launch {
 
 **Solution**:
 - Voice recognition is blocked during avatar speech to prevent echo
-- Either stop the avatar's speech first with `sendStopSpeech()`, or try after the speech completes
+- Either stop the avatar speech first with `sendStopSpeech()`, or try after the speech completes
 
 ### Debugging Tips
 

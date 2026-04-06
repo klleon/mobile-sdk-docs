@@ -108,7 +108,10 @@ class MyApplication : Application() {
 ```kotlin
 override fun onDestroy() {
     super.onDestroy()
-    klleonOndeviceSdk.finish() // 버퍼 유지 (재사용 대기)
+    // finish()는 suspend 함수이므로 코루틴에서 실행
+    CoroutineScope(Dispatchers.Default).launch {
+        klleonOndeviceSdk.finish() // 버퍼 유지 (재사용 대기)
+    }
 }
 ```
 

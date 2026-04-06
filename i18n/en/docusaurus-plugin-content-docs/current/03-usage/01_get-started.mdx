@@ -9,7 +9,7 @@ sidebar_label: Get Started
 
 ## Prerequisites
 
-Before using the Klleon Ondevice SDK, the following preparations are required:
+Before using the Klleon Ondevice SDK, you need the following:
 
 1.  **Kleon Studio Account**: A [Kleon Studio](https://www.studio.klleon.io/) account is required to use SDK features. If you don't have an account, please sign up first.
 2.  **SDK Key**: After registering your domain, a unique `sdk_key` will be issued for that domain. This key is required for SDK initialization.
@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // Resources ready — play() can now be called
+                // Resources ready — you can now call play()
             },
             onError = { error ->
                 Log.e("MainActivity", "Resource preparation failed", error)
@@ -131,14 +131,16 @@ class MainActivity : ComponentActivity() {
 ### Starting the SDK (play)
 
 ```kotlin
-// Start the SDK
-klleonOndeviceSdk.play(
-    context = this,                    // Context
-    klleonSdkViewInstance = sdkView,   // KlleonSdkView instance
-    sdkKey = "YOUR_SDK_KEY",           // SDK key
-    avatarId = "character_001",        // Avatar ID
-    language = "ko_kr"                 // Language (ko_kr, en_us, ja_jp)
-)
+// play() is a suspend function, so call it within a coroutine
+CoroutineScope(Dispatchers.IO).launch {
+    klleonOndeviceSdk.play(
+        context = this@Activity,               // Context
+        klleonSdkViewInstance = sdkView,       // KlleonSdkView instance
+        sdkKey = "YOUR_SDK_KEY",               // SDK key
+        avatarId = "character_001",            // Avatar ID
+        language = "ko_kr"                     // Language (ko_kr, en_us, ja_jp)
+    )
+}
 ```
 
 **Parameters:**
@@ -152,7 +154,7 @@ klleonOndeviceSdk.play(
 
 ## Next Steps
 
-After completing the setup:
+After setup is complete:
 
 1. Check the [API Reference](api-reference) for available methods
 2. Follow the [Guides](../guides/guides) for optimal integration

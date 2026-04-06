@@ -7,7 +7,7 @@ sidebar_label: 制限事項
 
 # 既知の制限事項
 
-SDK使用前に以下の要件と制限事項をご確認ください。
+SDKの使用前に以下の要件と制限事項をご確認ください。
 
 ## デバイス要件
 
@@ -18,21 +18,21 @@ SDK使用前に以下の要件と制限事項をご確認ください。
 | **ストレージ** | 500MB | 1GB以上 |
 | **GPU** | OpenGL ES 2.0 / OpenCL 1.2 | OpenGL ES 3.0+ / OpenCL 2.0+ |
 
-## サポートアーキテクチャ（ABI）
+## 対応アーキテクチャ（ABI）
 
-| ABI | サポート状況 | 備考 |
+| ABI | 対応状況 | 備考 |
 |-----|----------|------|
-| `arm64-v8a` | サポート | ほとんどの最新デバイス |
-| `armeabi-v7a` | サポート | 旧型32ビットデバイス |
-| `x86_64` | 非サポート | エミュレータ |
-| `x86` | 非サポート | エミュレータ |
+| `arm64-v8a` | 対応 | ほとんどの最新デバイス |
+| `armeabi-v7a` | 対応 | 旧型32ビットデバイス |
+| `x86_64` | 非対応 | エミュレータ |
+| `x86` | 非対応 | エミュレータ |
 
 :::warning エミュレータに関する注意事項
 x86/x86_64エミュレータではSDKは動作しません。
 
-**テスト方法：**
+**テスト方法:**
 - 実際のAndroidデバイスを使用（推奨）
-- ARMベースのエミュレータを使用（例：Apple Silicon Macのデフォルトエミュレータ）
+- ARMベースのエミュレータを使用（例: Apple Silicon Macのデフォルトエミュレータ）
 :::
 
 ## ネットワーク要件
@@ -55,13 +55,13 @@ x86/x86_64エミュレータではSDKは動作しません。
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
-## オーディオ関連の制限事項
+## オーディオに関する制限事項
 
-### USBマイク互換性
+### USBマイクの互換性
 
-- **MMAPポリシー**: MMAPはSDK内部で管理され、デフォルトで無効です。MMAP有効化時に一部のUSBマイクでストリームオープン失敗が発生する可能性があります。
-- **USBデバイス選択**: USBマイクが接続されると自動的に検出されて選択されます。
-- **非互換デバイス**: 一部のMediaTekベースTVで、USB複合デバイス（例：DM30RGB）のオーディオストリームオープンが失敗する場合があります。
+- **MMAPポリシー**: MMAPはSDK内部で管理されており、デフォルトでは無効です。MMAP有効化時に一部のUSBマイクでストリームのオープンに失敗する場合があります。
+- **USBデバイスの選択**: USBマイクが接続されると自動的に検出・選択されます。
+- **非互換デバイス**: 一部のMediaTekベースのTVでUSB複合デバイス（例: DM30RGB）のオーディオストリームのオープンに失敗する場合があります。
 
 ### エコー防止
 - アバター発話中は音声認識が自動的にブロックされます。
@@ -70,23 +70,23 @@ x86/x86_64エミュレータではSDKは動作しません。
 
 ### 1. メモリ使用量
 
-ビデオ処理およびAI推論中にメモリ使用量が高くなる場合があります。特に`ResourceManager.init()`呼び出し時にYUVフレームバッファとして**約1GBのネイティブメモリ**が割り当てられます。
+ビデオ処理およびAI推論中にメモリ使用量が高くなる場合があります。特に`ResourceManager.init()`の呼び出し時にYUVフレームバッファとして**約1GBのネイティブメモリ**が割り当てられます。
 
-#### バッファライフサイクル
+#### バッファのライフサイクル
 
-`finish()`はバッファを保持して同一アバター再入時に即座に再利用します（0ms）。完全なメモリ解放には`deinit()`を明示的に呼び出す必要があります。
+`finish()`はバッファを保持し、同一アバターへの再入時に即座に再利用します（0ms）。完全なメモリ解放には`deinit()`を明示的に呼び出す必要があります。
 
 | シナリオ | 動作 |
 |----------|------|
-| 同じアバター再入 | `init(同一avatarId)` → バッファ再利用（0ms） |
-| 異なるアバターへの切り替え | `init(新avatarId)` → 自動的に以前のバッファ解放 + 新規割り当て |
-| アプリバックグラウンド切り替え | `onTrimMemory` → `deinit()` → バッファ解放 |
-| アプリ終了 | `CharacterActivity.onDestroy` → `deinit()` → 完全解放 |
-| プロセス強制終了 | OSカーネルが自動回収（コード不要） |
+| 同じアバターへの再入 | `init(同一avatarId)` → バッファ再利用（0ms） |
+| 異なるアバターへの切り替え | `init(新avatarId)` → 自動で以前のバッファ解放 + 新規割り当て |
+| アプリのバックグラウンド遷移 | `onTrimMemory` → `deinit()` → バッファ解放 |
+| アプリの終了 | `CharacterActivity.onDestroy` → `deinit()` → 完全解放 |
+| プロセスの強制終了 | OSカーネルが自動回収（コード不要） |
 
 #### 必須実装パターン
 
-**Applicationクラス — バックグラウンドメモリ自動解放：**
+**Applicationクラス — バックグラウンドでのメモリ自動解放:**
 ```kotlin
 class MyApplication : Application() {
     override fun onCreate() {
@@ -104,42 +104,45 @@ class MyApplication : Application() {
 }
 ```
 
-**SDK play画面（ChatActivityなど）：**
+**SDK play画面（ChatActivityなど）:**
 ```kotlin
 override fun onDestroy() {
     super.onDestroy()
-    klleonOndeviceSdk.finish() // バッファ保持（再利用待機）
+    // finish()はsuspend関数のためコルーチンで実行
+    CoroutineScope(Dispatchers.Default).launch {
+        klleonOndeviceSdk.finish() // バッファ保持（再利用待機）
+    }
 }
 ```
 
-**アバター選択画面（CharacterActivityなど）：**
+**アバター選択画面（CharacterActivityなど）:**
 ```kotlin
 override fun onDestroy() {
     super.onDestroy()
-    // SDKが再生中でなければ（play前に離脱）手動でメモリ解放
+    // SDKが再生中でない場合（play前に離脱）手動でメモリを解放
     if (!KlleonOndeviceSdk.playing) {
         ResourceManager.deinit()
     }
 }
 ```
 
-:::info 重複呼び出し安全
-- `init()`: 同一アバター（`avatarId`）での再呼び出し時に既存バッファを再利用（重複割り当てなし）
+:::info 重複呼び出しの安全性
+- `init()`: 同一アバター（`avatarId`）での再呼び出し時は既存バッファを再利用（重複割り当てなし）
 - `deinit()`: 複数回呼び出しても安全（冪等性保証）
 - `finish()`: 内部playing状態チェックにより重複呼び出し安全
 :::
 
-### 2. バックグラウンド制限
+### 2. バックグラウンドの制限
 
-アプリがバックグラウンドに切り替わるとビデオ処理が一時停止します。
+アプリがバックグラウンドに遷移すると、ビデオ処理が一時停止されます。
 
 
-### 3. 単一インスタンス制限
+### 3. 単一インスタンスの制限
 
-`KlleonOndeviceSdk`インスタンスは**アプリごとに1つだけ**作成する必要があります。
-内部コルーチンスコープとスレッドプールがインスタンスごとに割り当てられるため、複数のインスタンスを作成するとリソース競合やメモリリークが発生します。
+`KlleonOndeviceSdk`インスタンスは**アプリにつき1つのみ**生成する必要があります。
+内部のコルーチンスコープとスレッドプールがインスタンスごとに割り当てられるため、複数のインスタンスを生成するとリソースの競合やメモリリークが発生します。
 
-**推奨：objectシングルトンで管理**
+**推奨: objectシングルトンで管理**
 
 ```kotlin
 // アプリ全体で単一インスタンスを共有
@@ -147,7 +150,7 @@ object SdkConfig {
     val sdk = KlleonOndeviceSdk()
 }
 
-// Activityで使用
+// Activityでの使用
 class ChatActivity : ComponentActivity() {
     private val klleonOndeviceSdk = SdkConfig.sdk  // 同一インスタンスを再利用
 }
@@ -158,22 +161,22 @@ class AnotherActivity : ComponentActivity() {
 ```
 
 :::caution 注意
-Activityのフィールドで`KlleonOndeviceSdk()`を直接生成すると、Activity再生成（画面回転、メモリ不足など）のたびに新しいインスタンスが作られ、以前のインスタンスのスレッドプールが蓄積されます。
+Activityフィールドで`KlleonOndeviceSdk()`を直接生成すると、Activityの再生成（画面回転、メモリ不足など）のたびに新しいインスタンスが作成され、以前のインスタンスのスレッドプールが累積されます。
 :::
 
 ```kotlin
-// 間違った使用法 - 複数インスタンス
+// 誤った使用法 - 複数インスタンス
 class MainActivity : Activity() {
     val sdk1 = KlleonOndeviceSdk() // インスタンス1
-    val sdk2 = KlleonOndeviceSdk() // インスタンス2 - 競合が発生します！
+    val sdk2 = KlleonOndeviceSdk() // インスタンス2 - 競合が発生！
 }
 ```
 
 ### 4. 画面回転
 
-画面回転時にActivityが再生成されるとSDK状態が初期化される可能性があります。
+画面回転時にActivityが再生成されると、SDKの状態が初期化される場合があります。
 
-**解決方法：**
+**解決方法:**
 ```xml
 <!-- AndroidManifest.xml - 画面回転を直接処理 -->
 <activity
@@ -181,30 +184,30 @@ class MainActivity : Activity() {
     android:configChanges="orientation|screenSize|screenLayout" />
 ```
 
-### 5. Android TV特有の事項
+### 5. Android TVの特記事項
 
 - TVプラットフォームではレイアウト変更時に自動フォーカスが最初のfocusable要素に付与され、キーボードが自動表示される場合があります。
-- `focusProperties { canFocus = false }`で根本的にブロックし、クリック時にのみ有効化してください。
-- MediaTekベースTVでは一部のUSBオーディオデバイスに互換性の問題がある場合があります。
+- `focusProperties { canFocus = false }` で根本的にブロックし、クリック時にのみ有効化してください。
+- MediaTekベースのTVで一部のUSBオーディオデバイスとの互換性問題が発生する場合があります。
 
 ## パフォーマンス最適化のヒント
 
 ### GPUアクセラレーション
 
-SDKはデフォルトでGPUアクセラレーションを使用します。一部の低スペックデバイスで問題が発生する場合：
+SDKはデフォルトでGPUアクセラレーションを使用します。一部のローエンドデバイスで問題が発生した場合：
 
 ```kotlin
 // GPU問題発生時のログ確認
 adb logcat | grep "Klleon_"
 ```
 
-### バッテリー最適化
+### バッテリーの最適化
 
 長時間使用時にバッテリー消費が大きくなる場合があります：
-- 使用しない時は`finish()`を呼び出す
-- 画面オフ時は処理停止を推奨
-- 必要に応じて`pauseVideo()` / `resumeVideo()`でビデオを制御
+- 使用しない場合は`finish()`を呼び出し
+- 画面オフ時に処理を停止することを推奨
+- `pauseVideo()` / `resumeVideo()`で必要に応じてビデオを制御
 
 ## サポートのお問い合わせ
 
-上記の制限事項で解決しない問題は、[Klleon Studio](https://www.studio.klleon.io/)よりお問い合わせください。
+上記の制限事項で解決できない問題は、[Klleon Studio](https://www.studio.klleon.io/)からお問い合わせください。
