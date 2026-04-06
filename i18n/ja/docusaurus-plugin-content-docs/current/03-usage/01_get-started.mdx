@@ -15,18 +15,18 @@ Klleon Ondevice SDKを使用する前に、以下の準備が必要です：
 2.  **SDKキーの発行**: ドメイン登録後、該当ドメインで使用する固有の`sdk_key`が発行されます。このキーはSDKの初期化に必要です。
 3.  **アバターID**: 使用するAIアバターの`avatarId`が必要です。
 
-## 権限
+## パーミッション
 
 ### AndroidManifest.xml
 
-`AndroidManifest.xml`に必要な権限を追加してください：
+`AndroidManifest.xml`に必要なパーミッションを追加してください：
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-### コードでの権限処理
+### コードでのパーミッション処理
 
 ```kotlin
 class MainActivity : ComponentActivity() {
@@ -60,11 +60,11 @@ class MainActivity : ComponentActivity() {
         val deniedPermissions = permissions.filter { !it.value }.keys
 
         if (deniedPermissions.isEmpty()) {
-            Log.d("MainActivity", "すべての権限が許可されました")
+            Log.d("MainActivity", "すべてのパーミッションが許可されました")
             initializeApp()
         } else {
-            Log.w("MainActivity", "権限が拒否されました: $deniedPermissions")
-            // 拒否された権限の処理
+            Log.w("MainActivity", "パーミッションが拒否されました: $deniedPermissions")
+            // 拒否されたパーミッションの処理
         }
     }
 }
@@ -79,8 +79,13 @@ import io.klleon.ondevice.KlleonOndeviceSdk
 import io.klleon.ondevice.ResourceManager
 import io.klleon.ondevice.render.KlleonSdkView
 
+// アプリ全体で単一インスタンスを共有
+object SdkConfig {
+    val sdk = KlleonOndeviceSdk()
+}
+
 class MainActivity : ComponentActivity() {
-    private val klleonOndeviceSdk = KlleonOndeviceSdk()
+    private val klleonOndeviceSdk = SdkConfig.sdk
     private val resourceManager = ResourceManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,7 +118,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play()の呼び出しが可能です
+                // リソース準備完了 — play()を呼び出し可能
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -126,19 +131,19 @@ class MainActivity : ComponentActivity() {
 ### SDKの開始（play）
 
 ```kotlin
-// SDKの開始
+// SDK開始
 klleonOndeviceSdk.play(
     context = this,                    // Context
     klleonSdkViewInstance = sdkView,   // KlleonSdkViewインスタンス
     sdkKey = "YOUR_SDK_KEY",           // SDKキー
     avatarId = "character_001",        // アバターID
-    language = "ko_kr"                 // 言語 (ko_kr, en_us, ja_jp)
+    language = "ko_kr"                 // 言語（ko_kr, en_us, ja_jp）
 )
 ```
 
 **パラメータ：**
 | パラメータ | 型 | 必須 | 説明 |
-|-----------|------|------|------|
+|------------|------|------|------|
 | `context` | Context | O | 現在のコンテキスト |
 | `klleonSdkViewInstance` | KlleonSdkView? | O | レンダリングビューインスタンス |
 | `sdkKey` | String | O | SDK認証キー |
@@ -147,8 +152,8 @@ klleonOndeviceSdk.play(
 
 ## 次のステップ
 
-設定完了後：
+セットアップ完了後：
 
-1. 使用可能なメソッドは[APIリファレンス](api-reference)をご確認ください
+1. 利用可能なメソッドについては[APIリファレンス](api-reference)をご確認ください
 2. 最適な統合のために[ガイド](../guides/guides)に従ってください
-3. 実装パターンは[使用例](../examples/examples)をご確認ください
+3. 実装パターンについては[使用例](../examples/examples)をご確認ください

@@ -13,7 +13,11 @@ sidebar_label: APIリファレンス
 すべての機能を提供するメインSDKクラスです。
 
 ```kotlin
-val klleonOndeviceSdk = KlleonOndeviceSdk()
+// シングルトンとして管理（推奨）
+object SdkConfig {
+    val sdk = KlleonOndeviceSdk()
+}
+val klleonOndeviceSdk = SdkConfig.sdk
 ```
 
 ### KlleonSdkView
@@ -577,7 +581,7 @@ try {
 
 ```kotlin
 class MainActivity : ComponentActivity() {
-    private val klleonOndeviceSdk = KlleonOndeviceSdk()
+    private val klleonOndeviceSdk = SdkConfig.sdk
 
     override fun onDestroy() {
         super.onDestroy()

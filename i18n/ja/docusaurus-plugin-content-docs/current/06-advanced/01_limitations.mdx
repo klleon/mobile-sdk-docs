@@ -137,13 +137,31 @@ override fun onDestroy() {
 ### 3. 単一インスタンス制限
 
 `KlleonOndeviceSdk`インスタンスは**アプリごとに1つだけ**作成する必要があります。
+内部コルーチンスコープとスレッドプールがインスタンスごとに割り当てられるため、複数のインスタンスを作成するとリソース競合やメモリリークが発生します。
+
+**推奨：objectシングルトンで管理**
 
 ```kotlin
-// 正しい使用法 - 単一インスタンス
-class MyApplication : Application() {
-    val klleonSdk = KlleonOndeviceSdk()
+// アプリ全体で単一インスタンスを共有
+object SdkConfig {
+    val sdk = KlleonOndeviceSdk()
 }
 
+// Activityで使用
+class ChatActivity : ComponentActivity() {
+    private val klleonOndeviceSdk = SdkConfig.sdk  // 同一インスタンスを再利用
+}
+
+class AnotherActivity : ComponentActivity() {
+    private val klleonOndeviceSdk = SdkConfig.sdk  // 同一インスタンスを再利用
+}
+```
+
+:::caution 注意
+Activityのフィールドで`KlleonOndeviceSdk()`を直接生成すると、Activity再生成（画面回転、メモリ不足など）のたびに新しいインスタンスが作られ、以前のインスタンスのスレッドプールが蓄積されます。
+:::
+
+```kotlin
 // 間違った使用法 - 複数インスタンス
 class MainActivity : Activity() {
     val sdk1 = KlleonOndeviceSdk() // インスタンス1
@@ -161,19 +179,6 @@ class MainActivity : Activity() {
 <activity
     android:name=".MainActivity"
     android:configChanges="orientation|screenSize|screenLayout" />
-```
-
-またはViewModelを使用してSDKインスタンスを保持：
-
-```kotlin
-class MainViewModel : ViewModel() {
-    val klleonSdk = KlleonOndeviceSdk()
-
-    override fun onCleared() {
-        super.onCleared()
-        klleonSdk.finish()
-    }
-}
 ```
 
 ### 5. Android TV特有の事項

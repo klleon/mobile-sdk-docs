@@ -6,10 +6,10 @@ sidebar_label: guides
 ---
 
 ### 1. Permission Management
-- Always check permissions before SDK initialization
+- Always check permissions before initializing the SDK
 - Handle permission denials with user-friendly messages
 - Provide clear rationale for required permissions
-- Test permission flows on various Android versions
+- Test the permission flow across different Android versions
 
 ```kotlin
 private fun showPermissionRationale() {
@@ -28,15 +28,15 @@ Initialize resources with `ResourceManager.init()` and only call `play()` after 
 #### Call Order
 
 ```
-Avatar selection → ResourceManager.init(avatarId) → onSuccess → sdk.play() → ... → sdk.finish()
-Same avatar      → ResourceManager.init(same avatarId) → Buffer reuse → Instant onSuccess → sdk.play()
-Avatar change    → ResourceManager.init(new avatarId) → Auto-release previous buffer + new allocation → onSuccess → sdk.play()
+Avatar selected  → ResourceManager.init(avatarId) → onSuccess → sdk.play() → ... → sdk.finish()
+Same avatar      → ResourceManager.init(same avatarId) → Buffer reused → Immediate onSuccess → sdk.play()
+Avatar changed   → ResourceManager.init(new avatarId) → Automatically release previous buffer + allocate new → onSuccess → sdk.play()
 App exit         → ResourceManager.deinit() (call in Application.onDestroy or Activity.onDestroy)
 ```
 
 #### Safe Cleanup Pattern
 
-In Activities that use the SDK, call `finish()` in `onDestroy()`:
+In the Activity that uses the SDK, call `finish()` in `onDestroy()`:
 
 ```kotlin
 // ChatActivity (SDK play screen)
@@ -46,8 +46,7 @@ override fun onDestroy() {
 }
 ```
 
-For screens like avatar selection where only `init()` is called and `play()` is called in another Activity,
-release memory with `deinit()` if the SDK is not playing:
+In cases where only `init()` is called and `play()` is called in a different Activity (such as an avatar selection screen), release memory with `deinit()` if the SDK is not playing:
 
 ```kotlin
 // CharacterActivity (avatar selection screen)
@@ -61,7 +60,7 @@ override fun onDestroy() {
 
 #### Background Memory Release
 
-When the app moves to the background, the ~1GB YUV buffer is unnecessarily occupied. Register `ComponentCallbacks2` in your `Application` for automatic release:
+When the app moves to the background, the ~1GB YUV buffer is unnecessarily retained. Register `ComponentCallbacks2` in your `Application` to release it automatically:
 
 ```kotlin
 class MyApplication : Application() {
@@ -81,10 +80,10 @@ class MyApplication : Application() {
 ```
 
 ### 3. State Observation
-- Use ViewModel to observe SDK state changes
+- Use a ViewModel to observe SDK state changes
 - Collect state updates in a coroutine scope
 - Safely parse JSON responses with try-catch blocks
-- Process state updates on the main thread for UI changes
+- Handle state updates on the main thread for UI changes
 
 ### 4. Error Handling
 - Wrap SDK method calls in try-catch blocks
@@ -98,7 +97,7 @@ fun safeOperation() {
         klleonOndeviceSdk.sendMessage(message)
     } catch (e: Exception) {
         Log.e("SDK", "Operation failed", e)
-        showUserError("Operation failed. Please try again.")
+        showUserError("The operation failed. Please try again.")
     }
 }
 ```
@@ -107,30 +106,30 @@ fun safeOperation() {
 - Use `AndroidView` in Compose to integrate `KlleonSdkView`
 - Ensure the view is properly initialized before calling SDK methods
 - Handle view lifecycle appropriately
-- Test UI on various screen sizes and orientations
+- Test the UI across different screen sizes and orientations
 
 ### 6. Voice Recognition Integration
 
-Start voice recognition on button tap; it automatically stops when silence is detected.
+Tap a button to start voice recognition; it automatically stops when silence is detected.
 
 ```kotlin
 // Start voice recognition
 val success = klleonOndeviceSdk.startVoiceRecognition()
 
-// Results are received via sdkState Flow
+// Results are received via the sdkState Flow
 klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
         "STT_RESULT" -> {
-            // Final speech recognition result
+            // Final voice recognition result
             val text = json.getString("message")
         }
         "STT_PARTIAL" -> {
-            // Intermediate result (for real-time display)
+            // Interim result (for real-time display)
             val partialText = json.getString("message")
         }
         "STT_STATUS" -> {
-            // Speech recognition status change (preparing/reconnecting/ready)
+            // Voice recognition status change (preparing/reconnecting/ready)
             val statusMessage = json.getString("message")
             showToast(statusMessage)
         }
@@ -140,7 +139,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
 
 ### 7. Speech Interruption
 
-You can immediately stop the avatar while it's speaking.
+You can immediately stop the avatar's speech while it is speaking.
 
 ```kotlin
 klleonOndeviceSdk.sendStopSpeech()
@@ -148,14 +147,14 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ### 8. Android TV Support
 
-Consider the following for TV devices:
+Consider the following when targeting TV devices:
 
-- **Screen Rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
-- **Remote Key Mapping**: Map directional keys to match the rotated screen
-- **Focus Management**: Prevent keyboard auto-display caused by TV auto-focus
+- **Screen rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
+- **Remote key mapping**: Map directional keys to match the rotated screen
+- **Focus management**: Prevent automatic keyboard display caused by TV auto-focus
 
 ```kotlin
-// TV screen rotation
+// Screen rotation for TV
 klleonSdkView.setRenderRotation(270)
 ```
 
@@ -173,7 +172,7 @@ val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
 // Use appropriate coroutine scope for state observation
 viewModelScope.launch {
     klleonOndeviceSdk.sdkState.collect { state ->
-        // Handle state updates
+        // Handle state update
     }
 }
 ```
@@ -186,40 +185,40 @@ viewModelScope.launch {
 **Problem**: `RECORD_AUDIO` permission not granted
 
 **Solution**:
-- Verify permission is declared in `AndroidManifest.xml`
-- Check permission handling logic
-- Test on various Android versions
+- Verify the permission is declared in `AndroidManifest.xml`
+- Check the permission handling logic
+- Test across different Android versions
 
 #### 2. SDK State Not Updating
-**Problem**: State observation not working
+**Problem**: State observation is not working
 
 **Solution**:
-- Verify state observation is properly set up in ViewModel
+- Verify that state observation is properly set up in the ViewModel
 - Check that the coroutine scope is active
-- Confirm state collection has started
+- Confirm that state collection has started
 
 #### 3. View Not Ready
-**Problem**: `KlleonSdkView` not initialized before `play()` call
+**Problem**: `KlleonSdkView` is not initialized before `play()` is called
 
 **Solution**:
-- Verify view initialization in `AndroidView` factory
-- Only enable buttons when the view is ready
-- Add null checks before SDK method calls
+- Verify view initialization in the `AndroidView` factory
+- Enable the button only when the view is ready
+- Add null checks before calling SDK methods
 
 #### 4. USB Microphone Not Recognized
-**Problem**: USB microphone connected but not used by SDK
+**Problem**: USB microphone is connected but not used by the SDK
 
 **Solution**:
 - Check connection status with `hasUsbMicrophone()`
-- MMAP policy is managed internally by the SDK (default: disabled). Some USB microphones are MMAP-incompatible
+- MMAP policy is managed internally by the SDK (default: disabled). Some USB microphones are incompatible with MMAP
 - Check device logs: `adb logcat | grep "Ondevice_Mic"`
 
 #### 5. Voice Recognition Not Working During Avatar Speech
-**Problem**: Voice recognition doesn't start while the avatar is speaking
+**Problem**: Voice recognition does not start while the avatar is speaking
 
 **Solution**:
-- Voice recognition is blocked during avatar speech for echo prevention
-- Stop avatar speech first with `sendStopSpeech()`, or try after speech completes
+- Voice recognition is blocked during avatar speech to prevent echo
+- Either stop the avatar's speech first with `sendStopSpeech()`, or try after the speech completes
 
 ### Debugging Tips
 

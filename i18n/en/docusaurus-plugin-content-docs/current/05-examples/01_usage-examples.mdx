@@ -10,8 +10,13 @@ sidebar_label: android examples
 ## MainActivity Implementation
 
 ```kotlin
+// Share a single instance across the entire app
+object SdkConfig {
+    val sdk = KlleonOndeviceSdk()
+}
+
 class MainActivity : ComponentActivity() {
-    private val klleonOndeviceSdk = KlleonOndeviceSdk()
+    private val klleonOndeviceSdk = SdkConfig.sdk
     private val resourceManager = ResourceManager()
 
     private val requiredPermissions = arrayOf(
@@ -46,7 +51,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Resource initialization (cache copy + YUV conversion + memory loading)
+        // Initialize resources (cache copy + YUV conversion + memory loading)
         resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
@@ -254,7 +259,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT partial] $message"
+                        "STT_PARTIAL" -> "[STT Interim] $message"
                         "RESPONSE" -> "[Avatar] $message"
                         else -> message
                     }
@@ -288,7 +293,7 @@ For a simple implementation:
 @Composable
 fun SimpleSDKIntegration() {
     val context = LocalContext.current
-    val klleonOndeviceSdk = remember { KlleonOndeviceSdk() }
+    val klleonOndeviceSdk = remember { SdkConfig.sdk }
     var sdkView by remember { mutableStateOf<KlleonSdkView?>(null) }
 
     Column(
@@ -332,15 +337,15 @@ fun SimpleSDKIntegration() {
 
 ## Avatar Switching Example
 
-`init()` automatically detects avatar changes. For the same avatar, it instantly reuses the buffer; for a different avatar, it releases the previous buffer and allocates a new one.
+`init()` automatically detects avatar changes. For the same avatar, buffers are immediately reused; for a different avatar, previous buffers are released and new ones are allocated.
 
 ```kotlin
 class CharacterSelectActivity : ComponentActivity() {
 
     fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
-        // init() compares avatarId to automatically handle buffer reuse/switching
-        // Same avatar: instant onSuccess (0ms)
-        // Different avatar: release previous buffer + new allocation
+        // init() compares avatarId and automatically handles buffer reuse/switching
+        // Same avatar: immediate onSuccess (0ms)
+        // Different avatar: release previous buffer + allocate new
         ResourceManager.init(
             context = this,
             mp4FileName = avatarMp4,

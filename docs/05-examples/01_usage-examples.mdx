@@ -10,8 +10,13 @@ sidebar_label: android examples
 ## MainActivity 구현
 
 ```kotlin
+// 앱 전역에서 단일 인스턴스를 공유
+object SdkConfig {
+    val sdk = KlleonOndeviceSdk()
+}
+
 class MainActivity : ComponentActivity() {
-    private val klleonOndeviceSdk = KlleonOndeviceSdk()
+    private val klleonOndeviceSdk = SdkConfig.sdk
     private val resourceManager = ResourceManager()
 
     private val requiredPermissions = arrayOf(
@@ -288,7 +293,7 @@ class WorkerViewModel : ViewModel() {
 @Composable
 fun SimpleSDKIntegration() {
     val context = LocalContext.current
-    val klleonOndeviceSdk = remember { KlleonOndeviceSdk() }
+    val klleonOndeviceSdk = remember { SdkConfig.sdk }
     var sdkView by remember { mutableStateOf<KlleonSdkView?>(null) }
 
     Column(

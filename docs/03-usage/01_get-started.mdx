@@ -79,8 +79,13 @@ import io.klleon.ondevice.KlleonOndeviceSdk
 import io.klleon.ondevice.ResourceManager
 import io.klleon.ondevice.render.KlleonSdkView
 
+// 앱 전역에서 단일 인스턴스를 공유
+object SdkConfig {
+    val sdk = KlleonOndeviceSdk()
+}
+
 class MainActivity : ComponentActivity() {
-    private val klleonOndeviceSdk = KlleonOndeviceSdk()
+    private val klleonOndeviceSdk = SdkConfig.sdk
     private val resourceManager = ResourceManager()
 
     override fun onCreate(savedInstanceState: Bundle?) {
