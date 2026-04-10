@@ -160,6 +160,8 @@ fun WorkerScreen(
                                     avatarId = "character_001",
                                     language = "ko_kr"
                                 )
+                                // 60초 무활동 시 자동 대기화면
+                                klleonOndeviceSdk.setIdleTimeout()
                             }
                         }
                     },
@@ -242,6 +244,56 @@ fun WorkerScreen(
             }
         }
     }
+}
+```
+
+## 대기화면(Standby) 모드
+
+### Wake-word로 대기화면 해제
+
+Wakeword 매칭과 결합하여 음성 명령으로 대기화면을 해제하는 예제입니다.
+Wakeword 매칭은 `enterStandby()` 시 자동 활성화, `exitStandby()` 시 자동 비활성화됩니다.
+
+```kotlin
+// Wakeword 등록 — 등록만으로는 매칭 비활성 (standby 진입 시 자동 활성화)
+klleonOndeviceSdk.registerWakewords(mapOf(
+    "ジャパニーズ" to "ja_jp",
+    "イングリッシュ" to "en_us",
+    "コリアン" to "ko_kr",
+))
+
+// Wakeword 감지 시 언어 전환 + standby 해제
+LaunchedEffect(Unit) {
+    klleonOndeviceSdk.wakewordDetected.collect { result ->
+        klleonOndeviceSdk.sendChangeLanguage(result.tag)
+        if (klleonOndeviceSdk.isStandby()) {
+            klleonOndeviceSdk.exitStandby()  // 매칭도 자동 비활성화
+        }
+    }
+}
+```
+
+### STANDBY_ENTER 이벤트 수신
+
+```kotlin
+LaunchedEffect(Unit) {
+    klleonOndeviceSdk.sdkState.collect { state ->
+        if (state.contains("STANDBY_ENTER")) {
+            // 대기화면 UI 표시 (오버레이 등)
+        }
+    }
+}
+```
+
+### 아바타 응답 상태 모니터링
+
+```kotlin
+// StateFlow로 구독
+val isResponding by klleonOndeviceSdk.isResponding.collectAsState()
+
+if (isResponding) {
+    // 아바타가 응답 준비 중이거나 발화 중
+    Text("응답 중...")
 }
 ```
 
@@ -399,6 +451,63 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
 
     Text(
         text = currentState,
+        modifier = Modifier.padding(16.dp)
+    )
+}
+```
+
+## Wakeword 기반 언어 전환 (Standby 연동)
+
+대기화면(Standby) 모드에서 음성 wakeword를 감지하여 아바타의 대화 언어를 자동 전환하고 대기화면을 해제하는 예제입니다.
+
+:::info STT 언어와 wakeword 등록 전략
+`play()` 또는 `sendChangeLanguage()`에 전달한 언어가 STT 인식 언어로도 설정됩니다. Wakeword는 **현재 STT 언어가 인식할 수 있는 단어**로 등록해야 합니다.
+
+예를 들어 한국어 모드(`ko_kr`)에서는 `"니혼고"`, `"잉글리쉬"` 같은 한국어 발음 wakeword가 인식되고, 일본어 모드(`ja_jp`)로 전환되면 `"韓国語"`, `"英語"` 같은 일본어 wakeword가 인식됩니다.
+
+따라서 **모든 지원 언어의 wakeword를 한꺼번에 등록**하는 것이 좋습니다.
+:::
+
+:::caution Standby 모드 필수
+Wakeword 매칭은 기본적으로 비활성화 상태이며, `enterStandby()` 진입 시 자동으로 활성화됩니다. `setIdleTimeout()`으로 자동 대기화면을 설정하거나, 수동으로 `enterStandby()`를 호출해야 wakeword 매칭이 동작합니다.
+:::
+
+```kotlin
+@Composable
+fun WakewordLanguageSwitcher(klleonOndeviceSdk: KlleonOndeviceSdk) {
+    var currentLanguage by remember { mutableStateOf("ko_kr") }
+
+    // 모든 언어에서 인식 가능한 wakeword를 한꺼번에 등록
+    LaunchedEffect(Unit) {
+        klleonOndeviceSdk.registerWakewords(mapOf(
+            // 한국어 STT에서 인식
+            "니혼고" to "ja_jp", "일본어" to "ja_jp",
+            "잉글리쉬" to "en_us", "영어" to "en_us",
+            // 일본어 STT에서 인식
+            "韓国語" to "ko_kr", "コリアン" to "ko_kr",
+            "英語" to "en_us",
+            // 영어 STT에서 인식
+            "Korean" to "ko_kr",
+            "Japanese" to "ja_jp",
+        ))
+
+        // 자동 대기화면 활성화 — standby 진입 시 wakeword 매칭도 자동 활성화
+        klleonOndeviceSdk.setIdleTimeout(60_000L)
+    }
+
+    // Wakeword 감지 시 언어 전환 + standby 해제
+    LaunchedEffect(Unit) {
+        klleonOndeviceSdk.wakewordDetected.collect { result ->
+            klleonOndeviceSdk.sendChangeLanguage(result.tag)
+            currentLanguage = result.tag
+            if (klleonOndeviceSdk.isStandby()) {
+                klleonOndeviceSdk.exitStandby()  // 매칭도 자동 비활성화
+            }
+        }
+    }
+
+    Text(
+        text = "현재 언어: $currentLanguage",
         modifier = Modifier.padding(16.dp)
     )
 }

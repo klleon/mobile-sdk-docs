@@ -162,6 +162,70 @@ Consider the following for TV devices:
 klleonSdkView.setRenderRotation(270)
 ```
 
+### 9. Standby Mode
+
+Like a screensaver on a computer, this feature transitions the avatar to a standby state after a period of inactivity, and returns via wake-word.
+
+#### Flow
+
+```
+play() → setIdleTimeout() → conversation → TTS_END → 60s inactivity
+  → STANDBY_ENTER event → auto enterStandby()
+  → wake-word detected → exitStandby() + language switch → conversation resumes
+```
+
+#### Automatic Standby Setup
+
+```kotlin
+// Enable idle timeout after play()
+klleonOndeviceSdk.play(context, view, sdkKey, avatarId, language)
+klleonOndeviceSdk.setIdleTimeout(60_000L)  // Auto standby after 60s inactivity
+```
+
+If not called, the automatic standby feature is disabled.
+
+#### Exiting Standby with Wake-word
+
+Combine with wakeword matching to exit standby via voice commands. Wakeword matching is automatically enabled on `enterStandby()` and automatically disabled on `exitStandby()`, so no separate on/off control is needed from the app.
+
+```kotlin
+// Register wakewords (for language switching) — matching inactive until standby
+klleonOndeviceSdk.registerWakewords(mapOf(
+    "ジャパニーズ" to "ja_jp",
+    "イングリッシュ" to "en_us",
+    "コリアン" to "ko_kr",
+))
+
+// Switch language + exit standby on wakeword detection
+// Since matching only works during standby, wakewordDetected only emits in standby state
+klleonOndeviceSdk.wakewordDetected.collect { result ->
+    klleonOndeviceSdk.sendChangeLanguage(result.tag)
+    if (klleonOndeviceSdk.isStandby()) {
+        klleonOndeviceSdk.exitStandby()  // Matching also auto-disabled
+    }
+}
+```
+
+:::tip
+Place `sendChangeLanguage()` outside the `isStandby()` guard. Under the current policy, wakewords only match during standby, but placing it outside is better for defensive coding.
+:::
+
+:::caution
+Wake-word detection only works when STT is active. Use `VoiceRecognitionMode.ALWAYS_ON` mode. In `DISCRETE` mode, you'll need an alternative method such as touch/button to exit standby.
+:::
+
+#### Receiving STANDBY_ENTER Events
+
+When automatic standby is entered, a `STANDBY_ENTER` event is emitted to `sdkState`. The app can use this for UI updates (showing an overlay, etc.).
+
+```kotlin
+klleonOndeviceSdk.sdkState.collect { state ->
+    if (state.contains("STANDBY_ENTER")) {
+        // Show standby UI
+    }
+}
+```
+
 ## Performance Optimization
 
 

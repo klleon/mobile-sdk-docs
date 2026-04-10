@@ -162,6 +162,70 @@ TVデバイスでは以下の事項を考慮してください：
 klleonSdkView.setRenderRotation(270)
 ```
 
+### 9. 待機画面（Standby）モード
+
+コンピュータのスクリーンセーバーのように、一定時間無活動の場合にアバターを待機状態に切り替え、wake-wordで復帰する機能です。
+
+#### フロー
+
+```
+play() → setIdleTimeout() → 会話 → TTS_END → 60秒無活動
+  → STANDBY_ENTERイベント → 自動enterStandby()
+  → wake-word検出 → exitStandby() + 言語切り替え → 会話再開
+```
+
+#### 自動待機画面の設定
+
+```kotlin
+// play()呼び出し後にidle timeoutを有効化
+klleonOndeviceSdk.play(context, view, sdkKey, avatarId, language)
+klleonOndeviceSdk.setIdleTimeout(60_000L)  // 60秒無活動で自動待機
+```
+
+呼び出さない場合、自動待機画面機能は無効化されます。
+
+#### Wake-wordで待機画面を解除
+
+Wakewordマッチングと組み合わせて、音声コマンドで待機画面を解除できます。Wakewordマッチングは`enterStandby()`時に自動的に有効化され、`exitStandby()`時に自動的に無効化されるため、アプリ側で別途のon/off制御は不要です。
+
+```kotlin
+// Wakewordの登録（言語切り替え用）— 登録だけではマッチング無効
+klleonOndeviceSdk.registerWakewords(mapOf(
+    "ジャパニーズ" to "ja_jp",
+    "イングリッシュ" to "en_us",
+    "コリアン" to "ko_kr",
+))
+
+// Wakeword検出時に言語切り替え + standby解除
+// standby中にのみマッチングが動作するため、wakewordDetectedはstandby状態でのみemitされます
+klleonOndeviceSdk.wakewordDetected.collect { result ->
+    klleonOndeviceSdk.sendChangeLanguage(result.tag)
+    if (klleonOndeviceSdk.isStandby()) {
+        klleonOndeviceSdk.exitStandby()  // マッチングも自動無効化
+    }
+}
+```
+
+:::tip
+`sendChangeLanguage()`は`isStandby()`ガードの外に配置してください。現在のポリシーではstandby中にのみwakewordがマッチングされますが、防御的コーディングのためにガードの外に置くことをお勧めします。
+:::
+
+:::caution
+wake-word検出はSTTがアクティブ状態の場合にのみ動作します。`VoiceRecognitionMode.ALWAYS_ON`モードをご使用ください。`DISCRETE`モードではタッチ/ボタンなどの別の方法で解除する必要があります。
+:::
+
+#### STANDBY_ENTERイベントの受信
+
+自動待機画面進入時に`sdkState`へ`STANDBY_ENTER`イベントが発行されます。アプリでUI更新（オーバーレイ表示など）にご活用いただけます。
+
+```kotlin
+klleonOndeviceSdk.sdkState.collect { state ->
+    if (state.contains("STANDBY_ENTER")) {
+        // 待機画面UIの表示
+    }
+}
+```
+
 ## パフォーマンスの最適化
 
 

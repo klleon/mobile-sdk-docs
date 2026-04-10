@@ -11,7 +11,29 @@ Version history for Klleon Ondevice SDK.
 
 ---
 
-## v0.4.0 (Latest)
+## v0.5.0 (Latest)
+
+**Release Date**: April 2026
+
+### Breaking Changes
+- `pauseVideo()` / `resumeVideo()` / `isVideoPaused()` renamed to `enterStandby()` / `exitStandby()` / `isStandby()`
+- `registerKeywords()` / `clearKeywords()` / `keywordDetected` renamed to `registerWakewords()` / `clearWakewords()` / `wakewordDetected`
+
+### New Features
+- Standby mode: Full pipeline flush + timing reinitialization to prevent fast-forward/ANR
+- Wake-word matching: Detect registered keywords from STT recognition results → callback delivery (active only during standby)
+- `setIdleTimeout()` / `disableIdleTimeout()`: Automatic standby entry after inactivity following TTS_END
+- `isResponding: StateFlow<Boolean>`: Avatar response state tracking (PREPARING_RESPONSE ~ TTS_END)
+- `STANDBY_ENTER` event: Emitted to sdkState on automatic standby entry
+
+### Bug Fixes
+- VideoDecoder `stop()` race condition (pauseToken/stopToken order reversal)
+- ASYNC mode consumer not checking pauseToken
+- Added AudioPlayer `pause()` / `resume()` (fixed issue where only video paused but audio continued playing)
+
+---
+
+## v0.4.0
 
 **Release Date**: April 2026
 
@@ -284,8 +306,10 @@ Version history for Klleon Ondevice SDK.
 
 | Version | Status | Notes |
 |---------|--------|-------|
-| 0.3.x | Active Support | Latest |
-| 0.2.x | Active Support | |
+| 0.5.x | Active Support | Latest |
+| 0.4.x | Active Support | |
+| 0.3.x | Active Support | |
+| 0.2.x | Maintenance | |
 | 0.1.x | End of Support | Ended Q1 2025 |
 
 We recommend using the latest version.

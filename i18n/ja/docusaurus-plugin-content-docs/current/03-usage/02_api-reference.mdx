@@ -251,30 +251,150 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ---
 
-## ビデオ制御API
+## Wakeword API
 
-### pauseVideo()
+STT認識結果から登録されたwakewordを検出し、コールバックを伝達します。Wakewordがマッチングされると、該当STT結果は通常の会話入力（`STT_RESULT`）から除外されます。
 
-ビデオデコードを一時停止します。リソースは保持されます。
+:::note Standby連動ポリシー
+Wakewordマッチングはデフォルトで**無効化**状態です。`enterStandby()`呼び出し時に自動的に有効化され、`exitStandby()`呼び出し時に自動的に無効化されます。`registerWakewords()`でwakewordを登録しても、standbyモードに進入しないとマッチングは動作しません。
+:::
+
+:::info STT言語とwakeword
+`play(language)`または`sendChangeLanguage(language)`で設定した言語がSTT認識言語としても適用されます。Wakewordマッチングは該当言語のSTT認識結果で動作するため、**各言語のSTTが認識できるwakewordを登録**する必要があります。
+
+例：
+- 韓国語STT → `"영어"`、`"일본어"`、`"니혼고"` などの韓国語発音wakeword
+- 日本語STT → `"韓国語"`、`"英語"`、`"コリアン"` などの日本語認識wakeword
+- 英語STT → `"Korean"`、`"Japanese"` などの英語wakeword
+:::
+
+### registerWakewords()
+
+Wakewordを登録します。既存のwakewordを全て置き換えます。登録だけではマッチングは動作せず、`enterStandby()`進入時に有効化されます。
 
 ```kotlin
-klleonOndeviceSdk.pauseVideo()
+fun registerWakewords(wakewords: Map<String, String>)
 ```
 
-### resumeVideo()
+**パラメータ:**
+| パラメータ | 型 | 説明 |
+|---------|------|------|
+| `wakewords` | Map\<String, String\> | wakeword → タグマップ。Wakewordが検出されるとタグ値がコールバックで伝達されます |
 
-一時停止したビデオデコードを再開します。
-
+**例:**
 ```kotlin
-klleonOndeviceSdk.resumeVideo()
+// 言語切り替え用wakewordの登録
+klleonOndeviceSdk.registerWakewords(mapOf(
+    "니혼고" to "ja_jp", "일본어" to "ja_jp",
+    "잉글리쉬" to "en_us", "영어" to "en_us",
+    "한국어" to "ko_kr", "코리안" to "ko_kr",
+))
 ```
 
-### isVideoPaused()
+### clearWakewords()
 
-ビデオが一時停止状態かどうかを確認します。
+登録されたwakewordを全て初期化します。初期化後はwakewordマッチングが動作せず、すべてのSTT結果が`STT_RESULT`として伝達されます。
 
 ```kotlin
-val isPaused: Boolean = klleonOndeviceSdk.isVideoPaused()
+klleonOndeviceSdk.clearWakewords()
+```
+
+### wakewordDetected
+
+Wakewordマッチング結果を発行する`SharedFlow`です。
+
+```kotlin
+val wakewordDetected: SharedFlow<WakewordResult>
+```
+
+**WakewordResult:**
+| フィールド | 型 | 説明 |
+|------|------|------|
+| `wakeword` | String | マッチングされたwakeword原文（例：`"니혼고"`） |
+| `tag` | String | 登録時に指定したタグ（例：`"ja_jp"`） |
+| `fullText` | String | STTが認識した全体テキスト |
+
+**例:**
+```kotlin
+// Wakeword検出時に言語切り替え
+LaunchedEffect(Unit) {
+    klleonOndeviceSdk.wakewordDetected.collect { result ->
+        // result.wakeword = "니혼고", result.tag = "ja_jp"
+        klleonOndeviceSdk.sendChangeLanguage(result.tag)
+    }
+}
+```
+
+:::tip
+SDKはwakewordが何を意味するかには関与しません。タグ値はアプリが自由に定義でき、言語コード以外にも`"mode_quiet"`、`"stop"`などどのような文字列でも使用可能です。
+:::
+
+---
+
+## 待機画面（Standby）API
+
+### enterStandby()
+
+待機画面モードに進入します。パイプライン全体をクリーンアップ（キューのクリア、オーディオバッファの破棄、タイミングの初期化）した後、ビデオデコードとオーディオ再生を一時停止します。リソースは維持されます。
+
+```kotlin
+klleonOndeviceSdk.enterStandby()
+```
+
+### exitStandby()
+
+待機画面モードを解除します。ビデオデコードとオーディオ再生を再開します。
+
+```kotlin
+klleonOndeviceSdk.exitStandby()
+```
+
+### isStandby()
+
+待機画面モード状態かどうかを確認します。
+
+```kotlin
+val isStandby: Boolean = klleonOndeviceSdk.isStandby()
+```
+
+### setIdleTimeout(timeoutMs)
+
+idle timeoutを有効化します。アバター発話終了（TTS_END）後、指定時間の間無活動の場合に自動的に`enterStandby()`を呼び出します。`STANDBY_ENTER`イベントが`sdkState`に発行された後、待機画面に進入します。
+
+```kotlin
+// デフォルト値60秒
+klleonOndeviceSdk.setIdleTimeout()
+
+// カスタムtimeout（30秒）
+klleonOndeviceSdk.setIdleTimeout(30_000L)
+```
+
+:::info
+`play()`呼び出しの前後いつでも呼び出し可能です。呼び出さない場合、自動待機画面機能は無効化状態です。
+:::
+
+### disableIdleTimeout()
+
+idle timeoutを無効化します。有効化されたタイマーがある場合はキャンセルされます。
+
+```kotlin
+klleonOndeviceSdk.disableIdleTimeout()
+```
+
+### isResponding: StateFlow\<Boolean\>
+
+アバターが応答準備中または発話中であれば`true`。`PREPARING_RESPONSE`受信時に`true`、`TTS_END`または`ERROR`受信時に`false`に切り替わります。
+
+```kotlin
+// 現在の値を確認
+if (klleonOndeviceSdk.isResponding.value) {
+    // アバター応答中
+}
+
+// Flowで購読
+klleonOndeviceSdk.isResponding.collect { responding ->
+    // UIの更新
+}
 ```
 
 ---
@@ -356,31 +476,7 @@ val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
 
 ---
 
-## 録音制御API
-
-### startRecording()
-
-マイク録音を開始します。
-
-```kotlin
-val success: Boolean = klleonOndeviceSdk.startRecording()
-```
-
-### stopRecording()
-
-録音を停止します。
-
-```kotlin
-klleonOndeviceSdk.stopRecording()
-```
-
-### isRecording()
-
-録音中かどうかを確認します。
-
-```kotlin
-val recording: Boolean = klleonOndeviceSdk.isRecording()
-```
+## オーディオ入力ユーティリティ
 
 ### hasRecordAudioPermission()
 
@@ -388,14 +484,6 @@ RECORD_AUDIO権限があるかどうかを確認します。
 
 ```kotlin
 val hasPermission: Boolean = klleonOndeviceSdk.hasRecordAudioPermission()
-```
-
-### getInputLevel()
-
-現在のマイク入力レベルを返します（0.0 ~ 1.0）。
-
-```kotlin
-val level: Float = klleonOndeviceSdk.getInputLevel()
 ```
 
 ### hasUsbMicrophone()
@@ -468,6 +556,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
 | `WORKER_DISCONNECTED` | ソケット接続終了 |
 | `SPEECH_START` | アバター発話開始 |
 | `SPEECH_END` | アバター発話終了 |
+| `STANDBY_ENTER` | 自動待機画面モード進入 |
 | `STOP_RESPONSE_MESSAGE` | 現在のアバター発話中断 |
 
 #### STT_STATUSの詳細
@@ -500,23 +589,6 @@ klleonOndeviceSdk.recorderState: StateFlow<OboeRecorderState>
 | `Recording(deviceId, deviceName, deviceType)` | 録音中 |
 | `Stopping` | 停止中 |
 | `Error(message)` | エラー状態 |
-
-### silenceDetectionResult
-
-無音検出結果を発行するSharedFlowです。
-
-```kotlin
-klleonOndeviceSdk.silenceDetectionResult: SharedFlow<SilenceDetectionResult>?
-```
-
-**結果タイプ:**
-| タイプ | 説明 |
-|------|------|
-| `SpeechTimeout` | 音声入力待機時間超過 |
-| `SilenceDetected` | 音声後の無音検出（録音自動停止） |
-| `MaxTimeReached` | 最大録音時間超過 |
-| `ManualStop` | 手動停止 |
-| `Error` | エラー |
 
 ---
 

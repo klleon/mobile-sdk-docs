@@ -251,30 +251,150 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ---
 
-## Video Control API
+## Wakeword API
 
-### pauseVideo()
+Detects registered wakewords from STT recognition results and delivers callbacks. When a wakeword is matched, the corresponding STT result is excluded from normal conversation input (`STT_RESULT`).
 
-Pauses video decoding. Resources are retained.
+:::note Standby Integration Policy
+Wakeword matching is **disabled** by default. It is automatically enabled when `enterStandby()` is called and automatically disabled when `exitStandby()` is called. Even after registering wakewords with `registerWakewords()`, matching only works after entering standby mode.
+:::
+
+:::info STT Language and Wakewords
+The language set via `play(language)` or `sendChangeLanguage(language)` is also applied as the STT recognition language. Since wakeword matching operates on STT recognition results for that language, **you must register wakewords that the STT for each language can recognize**.
+
+Examples:
+- Korean STT → Wakewords like `"영어"`, `"일본어"`, `"니혼고"` (Korean pronunciation)
+- Japanese STT → Wakewords like `"韓国語"`, `"英語"`, `"コリアン"` (Japanese recognition)
+- English STT → Wakewords like `"Korean"`, `"Japanese"` (English)
+:::
+
+### registerWakewords()
+
+Registers wakewords. Replaces all existing wakewords. Registration alone does not activate matching; it becomes active upon entering standby with `enterStandby()`.
 
 ```kotlin
-klleonOndeviceSdk.pauseVideo()
+fun registerWakewords(wakewords: Map<String, String>)
 ```
 
-### resumeVideo()
+**Parameters:**
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `wakewords` | Map\<String, String\> | Wakeword → tag map. When a wakeword is detected, the tag value is delivered via callback |
 
-Resumes paused video decoding.
-
+**Example:**
 ```kotlin
-klleonOndeviceSdk.resumeVideo()
+// Register wakewords for language switching
+klleonOndeviceSdk.registerWakewords(mapOf(
+    "니혼고" to "ja_jp", "일본어" to "ja_jp",
+    "잉글리쉬" to "en_us", "영어" to "en_us",
+    "한국어" to "ko_kr", "코리안" to "ko_kr",
+))
 ```
 
-### isVideoPaused()
+### clearWakewords()
 
-Checks whether the video is currently paused.
+Clears all registered wakewords. After clearing, wakeword matching will not work and all STT results will be delivered as `STT_RESULT`.
 
 ```kotlin
-val isPaused: Boolean = klleonOndeviceSdk.isVideoPaused()
+klleonOndeviceSdk.clearWakewords()
+```
+
+### wakewordDetected
+
+A `SharedFlow` that emits wakeword matching results.
+
+```kotlin
+val wakewordDetected: SharedFlow<WakewordResult>
+```
+
+**WakewordResult:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `wakeword` | String | The matched wakeword text (e.g., `"니혼고"`) |
+| `tag` | String | The tag specified during registration (e.g., `"ja_jp"`) |
+| `fullText` | String | The full text recognized by STT |
+
+**Example:**
+```kotlin
+// Switch language when wakeword is detected
+LaunchedEffect(Unit) {
+    klleonOndeviceSdk.wakewordDetected.collect { result ->
+        // result.wakeword = "니혼고", result.tag = "ja_jp"
+        klleonOndeviceSdk.sendChangeLanguage(result.tag)
+    }
+}
+```
+
+:::tip
+The SDK does not interpret what a wakeword means. Tag values can be freely defined by the app — not just language codes, but any string such as `"mode_quiet"`, `"stop"`, etc.
+:::
+
+---
+
+## Standby API
+
+### enterStandby()
+
+Enters standby mode. Cleans up the entire pipeline (clears queues, discards audio buffers, resets timing) then pauses video decoding and audio playback. Resources are retained.
+
+```kotlin
+klleonOndeviceSdk.enterStandby()
+```
+
+### exitStandby()
+
+Exits standby mode. Resumes video decoding and audio playback.
+
+```kotlin
+klleonOndeviceSdk.exitStandby()
+```
+
+### isStandby()
+
+Checks whether the SDK is currently in standby mode.
+
+```kotlin
+val isStandby: Boolean = klleonOndeviceSdk.isStandby()
+```
+
+### setIdleTimeout(timeoutMs)
+
+Enables idle timeout. Automatically calls `enterStandby()` after a specified period of inactivity following avatar speech completion (TTS_END). A `STANDBY_ENTER` event is emitted to `sdkState` before entering standby.
+
+```kotlin
+// Default 60 seconds
+klleonOndeviceSdk.setIdleTimeout()
+
+// Custom timeout (30 seconds)
+klleonOndeviceSdk.setIdleTimeout(30_000L)
+```
+
+:::info
+Can be called at any point before or after `play()`. If not called, the automatic standby feature remains disabled.
+:::
+
+### disableIdleTimeout()
+
+Disables idle timeout. Cancels any active timer.
+
+```kotlin
+klleonOndeviceSdk.disableIdleTimeout()
+```
+
+### isResponding: StateFlow\<Boolean\>
+
+`true` when the avatar is preparing a response or speaking. Transitions to `true` upon receiving `PREPARING_RESPONSE`, and to `false` upon receiving `TTS_END` or `ERROR`.
+
+```kotlin
+// Check current value
+if (klleonOndeviceSdk.isResponding.value) {
+    // Avatar is responding
+}
+
+// Subscribe via Flow
+klleonOndeviceSdk.isResponding.collect { responding ->
+    // Update UI
+}
 ```
 
 ---
@@ -356,31 +476,7 @@ val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
 
 ---
 
-## Recording Control API
-
-### startRecording()
-
-Starts microphone recording.
-
-```kotlin
-val success: Boolean = klleonOndeviceSdk.startRecording()
-```
-
-### stopRecording()
-
-Stops recording.
-
-```kotlin
-klleonOndeviceSdk.stopRecording()
-```
-
-### isRecording()
-
-Checks whether recording is in progress.
-
-```kotlin
-val recording: Boolean = klleonOndeviceSdk.isRecording()
-```
+## Audio Input Utilities
 
 ### hasRecordAudioPermission()
 
@@ -388,14 +484,6 @@ Checks whether the RECORD_AUDIO permission is granted.
 
 ```kotlin
 val hasPermission: Boolean = klleonOndeviceSdk.hasRecordAudioPermission()
-```
-
-### getInputLevel()
-
-Returns the current microphone input level (0.0 to 1.0).
-
-```kotlin
-val level: Float = klleonOndeviceSdk.getInputLevel()
 ```
 
 ### hasUsbMicrophone()
@@ -468,6 +556,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
 | `WORKER_DISCONNECTED` | Socket connection terminated |
 | `SPEECH_START` | Avatar speech started |
 | `SPEECH_END` | Avatar speech ended |
+| `STANDBY_ENTER` | Automatic standby mode entered |
 | `STOP_RESPONSE_MESSAGE` | Current avatar speech interrupted |
 
 #### STT_STATUS Details
@@ -500,23 +589,6 @@ klleonOndeviceSdk.recorderState: StateFlow<OboeRecorderState>
 | `Recording(deviceId, deviceName, deviceType)` | Recording in progress |
 | `Stopping` | Stopping |
 | `Error(message)` | Error state |
-
-### silenceDetectionResult
-
-A SharedFlow that emits silence detection results.
-
-```kotlin
-klleonOndeviceSdk.silenceDetectionResult: SharedFlow<SilenceDetectionResult>?
-```
-
-**Result Types:**
-| Type | Description |
-|------|-------------|
-| `SpeechTimeout` | Voice input wait timeout |
-| `SilenceDetected` | Silence detected after speech (recording automatically stopped) |
-| `MaxTimeReached` | Maximum recording time exceeded |
-| `ManualStop` | Manually stopped |
-| `Error` | Error |
 
 ---
 

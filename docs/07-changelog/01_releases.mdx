@@ -11,7 +11,29 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ---
 
-## v0.4.0 (Latest)
+## v0.5.0 (Latest)
+
+**릴리스일**: 2026년 4월
+
+### Breaking Changes
+- `pauseVideo()` / `resumeVideo()` / `isVideoPaused()` → `enterStandby()` / `exitStandby()` / `isStandby()`로 리네이밍
+- `registerKeywords()` / `clearKeywords()` / `keywordDetected` → `registerWakewords()` / `clearWakewords()` / `wakewordDetected`로 리네이밍
+
+### 새로운 기능
+- 대기화면(Standby) 모드: 파이프라인 전체 flush + 타이밍 재초기화로 빨리감기/ANR 방지
+- Wake-word 매칭: STT 인식 결과에서 등록된 키워드 감지 → 콜백 전달 (standby 중에만 활성)
+- `setIdleTimeout()` / `disableIdleTimeout()`: TTS_END 후 무활동 시 자동 대기화면 진입
+- `isResponding: StateFlow<Boolean>`: 아바타 응답 상태 추적 (PREPARING_RESPONSE ~ TTS_END)
+- `STANDBY_ENTER` 이벤트: 자동 대기화면 진입 시 sdkState로 발행
+
+### 버그 수정
+- VideoDecoder `stop()` race condition (pauseToken/stopToken 순서 역전)
+- ASYNC 모드 consumer가 pauseToken 미확인
+- AudioPlayer `pause()` / `resume()` 추가 (비디오만 멈추고 오디오 계속 재생 문제)
+
+---
+
+## v0.4.0
 
 **릴리스일**: 2026년 4월
 
@@ -284,8 +306,10 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 | 버전 | 상태 | 비고 |
 |------|------|------|
-| 0.3.x | 활성 지원 | 최신 |
-| 0.2.x | 활성 지원 | |
+| 0.5.x | 활성 지원 | 최신 |
+| 0.4.x | 활성 지원 | |
+| 0.3.x | 활성 지원 | |
+| 0.2.x | 유지 보수 | |
 | 0.1.x | 지원 종료 | 2025년 Q1 종료 |
 
 최신 버전 사용을 권장합니다.
