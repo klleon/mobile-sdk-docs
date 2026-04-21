@@ -12,7 +12,7 @@ Please review the following requirements and limitations before using the SDK.
 ## Device Requirements
 
 | Item | OpenCL Minimum | OpenCL Recommended |
-|------|----------------|---------------------|
+|------|----------------|-------------------|
 | **Android Version** | 8.0 (API 26) | 12+ (API 31) |
 | **RAM** | 4GB | 6GB or more |
 | **Storage** | 500MB | 1GB or more |
@@ -31,14 +31,14 @@ Please review the following requirements and limitations before using the SDK.
 The SDK does not work on x86/x86_64 emulators.
 
 **Testing methods:**
-- Use a physical Android device (recommended)
-- Use an ARM-based emulator (e.g., the default emulator on Apple Silicon Macs)
+- Use a real Android device (recommended)
+- Use an ARM-based emulator (e.g., default emulator on Apple Silicon Macs)
 :::
 
 ## Network Requirements
 
 ### Prerequisites
-- **Internet Connection**: Required for real-time WebSocket communication
+- **Internet connection**: Required for real-time WebSocket communication
 - **Protocol**: HTTPS / WSS (TLS 1.2 or higher)
 - **Port**: 443
 
@@ -59,9 +59,9 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### USB Microphone Compatibility
 
-- **MMAP Policy**: MMAP is managed internally by the SDK and is disabled by default. Enabling MMAP may cause stream open failures on some USB microphones.
-- **USB Device Selection**: USB microphones are automatically detected and selected when connected.
-- **Incompatible Devices**: On some MediaTek-based TVs, opening audio streams for USB composite devices (e.g., DM30RGB) may fail.
+- **MMAP policy**: MMAP is managed internally by the SDK and is disabled by default. Enabling MMAP may cause stream open failures with some USB microphones.
+- **USB device selection**: USB microphones are automatically detected and selected when connected.
+- **Incompatible devices**: On some MediaTek-based TVs, opening audio streams from USB composite devices (e.g., DM30RGB) may fail.
 
 ### Echo Prevention
 - Voice recognition is automatically blocked during avatar speech.
@@ -70,23 +70,23 @@ The SDK does not work on x86/x86_64 emulators.
 
 ### 1. Memory Usage
 
-Memory usage can be high during video processing and AI inference. In particular, calling `ResourceManager.init()` allocates approximately **1GB of native memory** for YUV frame buffers.
+Memory usage can be high during video processing and AI inference. In particular, calling `ResourceManager.init()` allocates **approximately 1GB of native memory** for YUV frame buffers.
 
 #### Buffer Lifecycle
 
-`finish()` retains buffers for immediate reuse when re-entering with the same avatar (0ms). For complete memory release, `deinit()` must be called explicitly.
+`finish()` retains buffers for immediate reuse when re-entering with the same avatar (0ms). For complete memory release, `deinit()` must be explicitly called.
 
 | Scenario | Behavior |
 |----------|----------|
 | Same avatar re-entry | `init(same avatarId)` -> Buffer reuse (0ms) |
-| Different avatar switch | `init(new avatarId)` -> Previous buffer auto-released + new allocation |
-| App moved to background | `onTrimMemory` -> `deinit()` -> Buffer released |
-| App exit | `CharacterActivity.onDestroy` -> `deinit()` -> Full release |
-| Process force-killed | OS kernel reclaims automatically (no code needed) |
+| Different avatar switch | `init(new avatarId)` -> Automatically release previous buffer + new allocation |
+| App background transition | `onTrimMemory` -> `deinit()` -> Buffer release |
+| App exit | `CharacterActivity.onDestroy` -> `deinit()` -> Complete release |
+| Process force kill | OS kernel auto-reclaims (no code needed) |
 
 #### Required Implementation Patterns
 
-**Application class -- automatic background memory release:**
+**Application class -- Automatic background memory release:**
 ```kotlin
 class MyApplication : Application() {
     override fun onCreate() {
@@ -110,7 +110,7 @@ override fun onDestroy() {
     super.onDestroy()
     // finish() is a suspend function, so run it in a coroutine
     CoroutineScope(Dispatchers.Default).launch {
-        klleonOndeviceSdk.finish() // Retain buffers (awaiting reuse)
+        klleonOndeviceSdk.finish() // Retain buffers (waiting for reuse)
     }
 }
 ```
@@ -127,20 +127,20 @@ override fun onDestroy() {
 ```
 
 :::info Safe for Duplicate Calls
-- `init()`: Reuses existing buffer when called again with the same avatar (`avatarId`) (no duplicate allocation)
+- `init()`: When called again with the same avatar (`avatarId`), reuses existing buffer (no duplicate allocation)
 - `deinit()`: Safe to call multiple times (idempotency guaranteed)
 - `finish()`: Safe for duplicate calls due to internal playing state check
 :::
 
 ### 2. Background Limitations
 
-Video processing is paused when the app moves to the background.
+Video processing is paused when the app transitions to the background.
 
 
 ### 3. Single Instance Limitation
 
-Only **one `KlleonOndeviceSdk` instance** should be created per app.
-Since internal coroutine scopes and thread pools are allocated per instance, creating multiple instances causes resource conflicts and memory leaks.
+Only **one** `KlleonOndeviceSdk` instance should be created per app.
+Internal coroutine scopes and thread pools are allocated per instance, so creating multiple instances causes resource conflicts and memory leaks.
 
 **Recommended: Manage as an object singleton**
 
@@ -161,7 +161,7 @@ class AnotherActivity : ComponentActivity() {
 ```
 
 :::caution Warning
-Creating `KlleonOndeviceSdk()` directly in an Activity field will create a new instance each time the Activity is recreated (screen rotation, low memory, etc.), causing thread pool accumulation from previous instances.
+If you create `KlleonOndeviceSdk()` directly in an Activity field, a new instance is created each time the Activity is recreated (screen rotation, low memory, etc.), causing thread pools from previous instances to accumulate.
 :::
 
 ```kotlin
@@ -174,7 +174,7 @@ class MainActivity : Activity() {
 
 ### 4. Screen Rotation
 
-SDK state may be reset when the Activity is recreated due to screen rotation.
+SDK state may be reset when an Activity is recreated due to screen rotation.
 
 **Solution:**
 ```xml
@@ -186,9 +186,9 @@ SDK state may be reset when the Activity is recreated due to screen rotation.
 
 ### 5. Android TV Specifics
 
-- On TV platforms, layout changes may automatically assign focus to the first focusable element, causing the keyboard to appear automatically.
-- Block this at the source with `focusProperties { canFocus = false }`, and only enable it on click.
-- Some MediaTek-based TVs may have USB audio device compatibility issues.
+- On TV platforms, auto-focus is assigned to the first focusable element on layout changes, which may cause the keyboard to appear automatically.
+- Block this at the source with `focusProperties { canFocus = false }`, then enable only on click.
+- Some MediaTek-based TVs may have compatibility issues with certain USB audio devices.
 
 ## Performance Optimization Tips
 
@@ -203,10 +203,10 @@ adb logcat | grep "Klleon_"
 
 ### Battery Optimization
 
-Battery consumption can be significant during extended use:
+Battery consumption can be significant during prolonged use:
 - Call `finish()` when not in use
 - Recommended to stop processing when the screen is off
-- Use `enterStandby()` / `exitStandby()` for standby mode
+- Utilize standby mode with `enterStandby()` / `exitStandby()`
 
 ## Support
 

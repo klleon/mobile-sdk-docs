@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play()の呼び出しが可能です
+                // リソース準備完了 — play() 呼び出し可能
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -83,7 +83,7 @@ fun WorkerScreen(
     var workerView by remember { mutableStateOf<KlleonSdkView?>(null) }
     var messageData by remember { mutableStateOf("") }
 
-    // SDK状態の収集
+    // SDK状態収集
     val accumulatedMessages by viewModel.accumulatedMessages.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -95,7 +95,7 @@ fun WorkerScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        // SDK状態の表示
+        // SDK状態表示
         Card(
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -160,7 +160,7 @@ fun WorkerScreen(
                                     avatarId = "character_001",
                                     language = "ko_kr"
                                 )
-                                // 60秒無活動で自動待機画面
+                                // 60秒無活動時に自動待機画面
                                 klleonOndeviceSdk.setIdleTimeout()
                             }
                         }
@@ -247,15 +247,15 @@ fun WorkerScreen(
 }
 ```
 
-## 待機画面（Standby）モード
+## 待機画面(Standby)モード
 
-### Wake-wordで待機画面を解除
+### Wake-wordで待機画面解除
 
 Wakewordマッチングと組み合わせて、音声コマンドで待機画面を解除する例です。
-Wakewordマッチングは`enterStandby()`時に自動有効化、`exitStandby()`時に自動無効化されます。
+Wakewordマッチングは `enterStandby()` 時に自動有効化、`exitStandby()` 時に自動無効化されます。
 
 ```kotlin
-// Wakewordの登録 — 登録だけではマッチング無効（standby進入時に自動有効化）
+// Wakeword登録 — 登録だけではマッチング無効（standby進入時に自動有効化）
 klleonOndeviceSdk.registerWakewords(mapOf(
     "ジャパニーズ" to "ja_jp",
     "イングリッシュ" to "en_us",
@@ -267,13 +267,13 @@ LaunchedEffect(Unit) {
     klleonOndeviceSdk.wakewordDetected.collect { result ->
         klleonOndeviceSdk.sendChangeLanguage(result.tag)
         if (klleonOndeviceSdk.isStandby()) {
-            klleonOndeviceSdk.exitStandby()  // マッチングも自動無効化
+            klleonOndeviceSdk.exitStandby()  // マッチングも自動で無効化
         }
     }
 }
 ```
 
-### STANDBY_ENTERイベントの受信
+### STANDBY_ENTERイベント受信
 
 ```kotlin
 LaunchedEffect(Unit) {
@@ -285,7 +285,7 @@ LaunchedEffect(Unit) {
 }
 ```
 
-### アバター応答状態のモニタリング
+### アバター応答状態モニタリング
 
 ```kotlin
 // StateFlowで購読
@@ -317,7 +317,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT中間] $message"
+                        "STT_PARTIAL" -> "[STT 中間] $message"
                         "RESPONSE" -> "[アバター] $message"
                         else -> message
                     }
@@ -343,7 +343,7 @@ class WorkerViewModel : ViewModel() {
 }
 ```
 
-## 最小統合サンプル
+## 最小統合例
 
 シンプルな実装の場合：
 
@@ -395,16 +395,16 @@ fun SimpleSDKIntegration() {
 }
 ```
 
-## アバター切り替えの例
+## アバター切り替え例
 
-`init()`はアバターの変更を自動検出します。同じアバターであればバッファを即座に再利用し、異なるアバターであれば以前のバッファを解放後に新たに割り当てます。
+`init()` はアバター変更を自動検出します。同じアバターであればバッファを即座に再利用し、異なるアバターであれば以前のバッファを解放後に新たに割り当てます。
 
 ```kotlin
 class CharacterSelectActivity : ComponentActivity() {
 
     fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
-        // init()がavatarIdを比較して自動でバッファの再利用/切り替えを処理
-        // 同じアバター: 即座にonSuccess（0ms）
+        // init()がavatarIdを比較して自動でバッファ再利用/切り替え処理
+        // 同じアバター: 即座にonSuccess (0ms)
         // 異なるアバター: 以前のバッファ解放 + 新規割り当て
         ResourceManager.init(
             context = this,
@@ -423,7 +423,7 @@ class CharacterSelectActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // play()前に離脱した場合のメモリ解放
+        // play()前の離脱時にメモリ解放
         if (!KlleonOndeviceSdk.playing) {
             ResourceManager.deinit()
         }
@@ -431,7 +431,7 @@ class CharacterSelectActivity : ComponentActivity() {
 }
 ```
 
-## 状態監視パターン
+## 状態観察パターン
 
 ```kotlin
 @Composable
@@ -444,7 +444,7 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
                 val json = JSONObject(state)
                 "状態: ${json.optString("chat_type")} - ${json.getString("message")}"
             } catch (e: Exception) {
-                "生の状態: $state"
+                "RAW状態: $state"
             }
         }
     }
@@ -458,18 +458,18 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
 
 ## Wakewordベースの言語切り替え（Standby連動）
 
-待機画面（Standby）モードで音声wakewordを検出して、アバターの会話言語を自動切り替えし、待機画面を解除する例です。
+待機画面(Standby)モードで音声wakewordを検出して、アバターの会話言語を自動切り替えし、待機画面を解除する例です。
 
 :::info STT言語とwakeword登録戦略
-`play()`または`sendChangeLanguage()`に渡した言語がSTT認識言語としても設定されます。Wakewordは**現在のSTT言語が認識できる単語**で登録する必要があります。
+`play()` または `sendChangeLanguage()` に渡した言語がSTT認識言語としても設定されます。Wakewordは**現在のSTT言語が認識できる単語**で登録する必要があります。
 
-例えば韓国語モード（`ko_kr`）では`"니혼고"`、`"잉글리쉬"`のような韓国語発音wakewordが認識され、日本語モード（`ja_jp`）に切り替わると`"韓国語"`、`"英語"`のような日本語wakewordが認識されます。
+例えば韓国語モード(`ko_kr`)では `"니혼고"`、`"잉글리쉬"` のような韓国語発音のwakewordが認識され、日本語モード(`ja_jp`)に切り替わると `"韓国語"`、`"英語"` のような日本語wakewordが認識されます。
 
-そのため、**すべてのサポート言語のwakewordを一度に登録**することをお勧めします。
+そのため、**すべてのサポート言語のwakewordをまとめて登録**することを推奨します。
 :::
 
 :::caution Standbyモード必須
-Wakewordマッチングはデフォルトで無効化状態であり、`enterStandby()`進入時に自動的に有効化されます。`setIdleTimeout()`で自動待機画面を設定するか、手動で`enterStandby()`を呼び出す必要があります。
+Wakewordマッチングは基本的に無効状態であり、`enterStandby()` 進入時に自動で有効化されます。`setIdleTimeout()` で自動待機画面を設定するか、手動で `enterStandby()` を呼び出す必要があります。
 :::
 
 ```kotlin
@@ -477,7 +477,7 @@ Wakewordマッチングはデフォルトで無効化状態であり、`enterSta
 fun WakewordLanguageSwitcher(klleonOndeviceSdk: KlleonOndeviceSdk) {
     var currentLanguage by remember { mutableStateOf("ko_kr") }
 
-    // すべての言語で認識可能なwakewordを一度に登録
+    // すべての言語で認識可能なwakewordをまとめて登録
     LaunchedEffect(Unit) {
         klleonOndeviceSdk.registerWakewords(mapOf(
             // 韓国語STTで認識
@@ -491,7 +491,7 @@ fun WakewordLanguageSwitcher(klleonOndeviceSdk: KlleonOndeviceSdk) {
             "Japanese" to "ja_jp",
         ))
 
-        // 自動待機画面の有効化 — standby進入時にwakewordマッチングも自動有効化
+        // 自動待機画面有効化 — standby進入時にwakewordマッチングも自動有効化
         klleonOndeviceSdk.setIdleTimeout(60_000L)
     }
 
@@ -501,7 +501,7 @@ fun WakewordLanguageSwitcher(klleonOndeviceSdk: KlleonOndeviceSdk) {
             klleonOndeviceSdk.sendChangeLanguage(result.tag)
             currentLanguage = result.tag
             if (klleonOndeviceSdk.isStandby()) {
-                klleonOndeviceSdk.exitStandby()  // マッチングも自動無効化
+                klleonOndeviceSdk.exitStandby()  // マッチングも自動で無効化
             }
         }
     }

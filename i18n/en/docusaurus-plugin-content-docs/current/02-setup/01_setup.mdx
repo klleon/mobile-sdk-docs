@@ -8,18 +8,46 @@ sidebar_label: setup
 # Setup
 
 ## 1) Requirements
-
-- **SDK Version**: 0.5.0
 - **Minimum SDK**: 26 (Android 8.0)
 - **Target SDK**: 36
 - **Supported ABI**: arm64-v8a, armeabi-v7a
+
+### Spec Requirements
+
+| Item | Minimum Spec | Notes |
+|------|-------------|-------|
+| Android | API 26 (8.0) or higher | |
+| CPU | ARM 64bit (ARMv8) | 4+ cores |
+| RAM | 4GB or more | |
+| GPU | OpenCL 1.2 + `cl_khr_fp16` | GPU inference required |
+| GPU Performance | FP32 ~200 GFLOPS or higher | Baseline: Galaxy S9 (Mali-G72 MP18, ~247 GFLOPS) |
+
+:::warning Pre-validation Required
+Catalog specifications alone cannot guarantee SDK operation.
+
+- **Same numbers, different results**: Even GPUs with similar performance (GFLOPS) have been observed to show 2-3x inference time differences depending on the vendor (Mali/Adreno/PowerVR).
+- **CPU matters more than GPU**: About 2/3 of the SDK's total processing is CPU work. Judging based on GPU specs alone cannot predict actual performance.
+- **Driver compatibility**: Some devices fail GPU delegate initialization due to OpenCL driver bugs. Even the same model may behave differently depending on the OS version.
+- **Thermal throttling**: During prolonged operation, CPU/GPU clock speeds decrease due to heat, degrading performance.
+- **High cost of post-deployment issues**: In mass deployment environments like kiosks/TVs, field response costs arise when problems occur. A 5-minute benchmark can eliminate this risk in advance.
+
+**We recommend pre-validation with a benchmark app before adopting new devices.**
+
+| Item | Pass Criteria |
+|------|--------------|
+| OpenCL Support | OpenCL 1.2+ & `cl_khr_fp16` |
+| TFLite GPU Inference | Initialization success |
+| Inference Time | &lt;60ms (excluding pre/post-processing) |
+| FPS (during speech) | Maintain 24fps or higher |
+| 5-minute continuous operation | Memory stable, temperature &lt;45°C |
+:::
 
 ---
 
 ### Resources
 
-The SDK requires a video file (`.mp4`) and a face model file (`.npz`).
-Place these files in the `assets` (`src/main/assets`) folder, then call `ResourceManager.init()` to copy them to cache and initialize.
+The SDK requires video files (`.mp4`) and face model files (`.npz`).
+Place these files in the `assets` (`src/main/assets`) folder, then call `ResourceManager.init()` to copy to cache and initialize.
 
 ```kotlin
 import io.klleon.ondevice.ResourceManager
@@ -32,7 +60,7 @@ ResourceManager.init(
     npzFileName = "loop_sample.npz",
     avatarId = "character_001",
     onSuccess = {
-        // Resources ready — you can now call play()
+        // Resources ready — play() can be called
     },
     onError = { error ->
         Log.e("Setup", "Resource preparation failed", error)
@@ -42,7 +70,7 @@ ResourceManager.init(
 
 :::info
 Internal paths are automatically configured after `init()` completes.
-The `onSuccess` callback of `init()` must be called before invoking `play()`.
+The `onSuccess` callback of `init()` must be invoked before calling `play()`.
 :::
 
 ## 2) Android Configuration
@@ -80,7 +108,7 @@ dependencies {
 ```
 
 :::info Bundled Libraries
-SDK AAR includes the following libraries:
+The SDK AAR includes the following libraries:
 - OkHttp, Okio, Retrofit
 - Jackson (Core, Module)
 - TensorFlow Lite
@@ -90,7 +118,7 @@ SDK AAR includes the following libraries:
 - ONNX Runtime
 - Agora RTC
 
-If your app uses libraries that depend on OkHttp or Okio (e.g., Coil), version conflicts may occur. In that case, exclude those groups from `RuntimeClasspath`:
+If your app uses libraries that depend on OkHttp or Okio (e.g., Coil), version conflicts may occur. In this case, exclude the relevant groups from `RuntimeClasspath`:
 ```kotlin
 configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true) }.configureEach {
     exclude(group = "com.squareup.okhttp3")
@@ -103,4 +131,4 @@ configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true
 
 The SDK AAR includes the necessary ProGuard/R8 rules, so **no additional configuration is required.**
 
-If you encounter an `UnsatisfiedLinkError`, check the `jniLibs.pickFirsts` setting in the Android configuration above.
+If you encounter `UnsatisfiedLinkError`, check the `jniLibs.pickFirsts` setting in the Android configuration above.

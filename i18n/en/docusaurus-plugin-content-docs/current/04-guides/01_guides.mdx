@@ -28,10 +28,10 @@ Initialize resources with `ResourceManager.init()` and only call `play()` after 
 #### Call Order
 
 ```
-Avatar selected  → ResourceManager.init(avatarId) → onSuccess → sdk.play() → ... → sdk.finish()
-Same avatar      → ResourceManager.init(same avatarId) → Buffer reused → Immediate onSuccess → sdk.play()
-Avatar changed   → ResourceManager.init(new avatarId) → Previous buffer auto-released + new allocation → onSuccess → sdk.play()
-App exit         → ResourceManager.deinit() (call in Application.onDestroy or Activity.onDestroy)
+Avatar selection -> ResourceManager.init(avatarId) -> onSuccess -> sdk.play() -> ... -> sdk.finish()
+Same avatar      -> ResourceManager.init(same avatarId) -> Buffer reuse -> Immediate onSuccess -> sdk.play()
+Avatar change    -> ResourceManager.init(new avatarId) -> Automatically release previous buffer + new allocation -> onSuccess -> sdk.play()
+App exit         -> ResourceManager.deinit() (call in Application.onDestroy or Activity.onDestroy)
 ```
 
 #### Safe Cleanup Pattern
@@ -49,7 +49,7 @@ override fun onDestroy() {
 }
 ```
 
-In cases where `init()` is called but `play()` is called in a different Activity,
+In cases where only `init()` is called and `play()` is called in a different Activity (such as the avatar selection screen),
 release memory with `deinit()` if the SDK is not playing:
 
 ```kotlin
@@ -64,7 +64,7 @@ override fun onDestroy() {
 
 #### Background Memory Release
 
-When the app moves to the background, the ~1GB YUV buffer is unnecessarily occupied. Register `ComponentCallbacks2` in your `Application` to release it automatically:
+When the app transitions to the background, the ~1GB YUV buffer remains unnecessarily occupied. Register `ComponentCallbacks2` in your `Application` for automatic release:
 
 ```kotlin
 class MyApplication : Application() {
@@ -84,10 +84,10 @@ class MyApplication : Application() {
 ```
 
 ### 3. State Observation
-- Use a ViewModel to observe SDK state changes
-- Collect state updates within a coroutine scope
+- Use ViewModel to observe SDK state changes
+- Collect state updates in a coroutine scope
 - Safely parse JSON responses with try-catch blocks
-- Process state updates on the main thread for UI changes
+- Handle state updates on the main thread for UI changes
 
 ### 4. Error Handling
 - Wrap SDK method calls in try-catch blocks
@@ -110,30 +110,30 @@ fun safeOperation() {
 - Use `AndroidView` in Compose to integrate `KlleonSdkView`
 - Ensure the view is properly initialized before calling SDK methods
 - Handle view lifecycle appropriately
-- Test UI across different screen sizes and orientations
+- Test UI on various screen sizes and orientations
 
 ### 6. Voice Recognition Integration
 
-Start voice recognition on button tap; it automatically stops when silence is detected.
+Voice recognition starts on button tap and automatically ends when silence is detected.
 
 ```kotlin
 // Start voice recognition
 val success = klleonOndeviceSdk.startVoiceRecognition()
 
-// Receive results via the sdkState Flow
+// Results are received via the sdkState Flow
 klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
         "STT_RESULT" -> {
-            // Final voice recognition result
+            // Voice recognition final result
             val text = json.getString("message")
         }
         "STT_PARTIAL" -> {
-            // Intermediate result (for real-time display)
+            // Interim result (for real-time display)
             val partialText = json.getString("message")
         }
         "STT_STATUS" -> {
-            // Voice recognition status change (preparing/reconnecting/ready)
+            // Voice recognition state change (preparing/reconnecting/ready)
             val statusMessage = json.getString("message")
             showToast(statusMessage)
         }
@@ -153,9 +153,9 @@ klleonOndeviceSdk.sendStopSpeech()
 
 Consider the following for TV devices:
 
-- **Screen Rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
-- **Remote Key Mapping**: Map directional keys to match the rotated screen
-- **Focus Management**: Prevent automatic keyboard display caused by TV auto-focus
+- **Screen rotation**: Support 270-degree rotation with `KlleonSdkView.setRenderRotation(270)`
+- **Remote key mapping**: Map directional keys to match the rotated screen
+- **Focus management**: Prevent automatic keyboard display caused by TV auto-focus
 
 ```kotlin
 // Screen rotation for TV
@@ -164,14 +164,14 @@ klleonSdkView.setRenderRotation(270)
 
 ### 9. Standby Mode
 
-Like a screensaver on a computer, this feature transitions the avatar to a standby state after a period of inactivity, and returns via wake-word.
+Like a computer's screensaver, this feature transitions the avatar to standby after a period of inactivity and returns via wake-word.
 
 #### Flow
 
 ```
-play() → setIdleTimeout() → conversation → TTS_END → 60s inactivity
-  → STANDBY_ENTER event → auto enterStandby()
-  → wake-word detected → exitStandby() + language switch → conversation resumes
+play() -> setIdleTimeout() -> Conversation -> TTS_END -> 60 seconds of inactivity
+  -> STANDBY_ENTER event -> Automatic enterStandby()
+  -> Wake-word detected -> exitStandby() + language switch -> Resume conversation
 ```
 
 #### Automatic Standby Setup
@@ -179,49 +179,49 @@ play() → setIdleTimeout() → conversation → TTS_END → 60s inactivity
 ```kotlin
 // Enable idle timeout after play()
 klleonOndeviceSdk.play(context, view, sdkKey, avatarId, language)
-klleonOndeviceSdk.setIdleTimeout(60_000L)  // Auto standby after 60s inactivity
+klleonOndeviceSdk.setIdleTimeout(60_000L)  // Auto standby after 60 seconds of inactivity
 ```
 
-If not called, the automatic standby feature is disabled.
+If not called, the automatic standby feature remains disabled.
 
 #### Exiting Standby with Wake-word
 
-Combine with wakeword matching to exit standby via voice commands. Wakeword matching is automatically enabled on `enterStandby()` and automatically disabled on `exitStandby()`, so no separate on/off control is needed from the app.
+By combining with wakeword matching, standby can be exited via voice commands. Wakeword matching is automatically enabled upon `enterStandby()` and automatically disabled upon `exitStandby()`, so no separate on/off control is needed from the app.
 
 ```kotlin
-// Register wakewords (for language switching) — matching inactive until standby
+// Register wakewords (for language switching) — registration alone does not activate matching
 klleonOndeviceSdk.registerWakewords(mapOf(
     "ジャパニーズ" to "ja_jp",
     "イングリッシュ" to "en_us",
     "コリアン" to "ko_kr",
 ))
 
-// Switch language + exit standby on wakeword detection
-// Since matching only works during standby, wakewordDetected only emits in standby state
+// Switch language + exit standby when wakeword is detected
+// Since matching only works during standby, wakewordDetected is only emitted in standby state
 klleonOndeviceSdk.wakewordDetected.collect { result ->
     klleonOndeviceSdk.sendChangeLanguage(result.tag)
     if (klleonOndeviceSdk.isStandby()) {
-        klleonOndeviceSdk.exitStandby()  // Matching also auto-disabled
+        klleonOndeviceSdk.exitStandby()  // Matching is also automatically disabled
     }
 }
 ```
 
 :::tip
-Place `sendChangeLanguage()` outside the `isStandby()` guard. Under the current policy, wakewords only match during standby, but placing it outside is better for defensive coding.
+Place `sendChangeLanguage()` outside the `isStandby()` guard. Under the current policy, wakewords are only matched during standby, but for defensive coding, it is better to place it outside the guard.
 :::
 
 :::caution
-Wake-word detection only works when STT is active. Use `VoiceRecognitionMode.ALWAYS_ON` mode. In `DISCRETE` mode, you'll need an alternative method such as touch/button to exit standby.
+Wake-word detection only works when STT is active. Use `VoiceRecognitionMode.ALWAYS_ON` mode. In `DISCRETE` mode, you must exit standby via touch/button or other methods.
 :::
 
 #### Receiving STANDBY_ENTER Events
 
-When automatic standby is entered, a `STANDBY_ENTER` event is emitted to `sdkState`. The app can use this for UI updates (showing an overlay, etc.).
+When automatic standby is entered, a `STANDBY_ENTER` event is emitted via `sdkState`. Apps can use this for UI updates (displaying overlays, etc.).
 
 ```kotlin
 klleonOndeviceSdk.sdkState.collect { state ->
     if (state.contains("STANDBY_ENTER")) {
-        // Show standby UI
+        // Display standby UI
     }
 }
 ```
@@ -237,10 +237,10 @@ val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
 
 ### Threading
 ```kotlin
-// Use the appropriate coroutine scope for state observation
+// Use appropriate coroutine scope for state observation
 viewModelScope.launch {
     klleonOndeviceSdk.sdkState.collect { state ->
-        // Handle state updates
+        // Handle state update
     }
 }
 ```
@@ -253,7 +253,7 @@ viewModelScope.launch {
 **Problem**: `RECORD_AUDIO` permission is not granted
 
 **Solution**:
-- Verify the permission is declared in `AndroidManifest.xml`
+- Verify that permissions are declared in `AndroidManifest.xml`
 - Check permission handling logic
 - Test on various Android versions
 
@@ -261,16 +261,16 @@ viewModelScope.launch {
 **Problem**: State observation is not working
 
 **Solution**:
-- Verify state observation is properly set up in the ViewModel
+- Verify that state observation is properly set up in the ViewModel
 - Ensure the coroutine scope is active
-- Confirm state collection has started
+- Confirm that state collection has been started
 
 #### 3. View Not Ready
 **Problem**: `KlleonSdkView` is not initialized before calling `play()`
 
 **Solution**:
 - Verify view initialization in the `AndroidView` factory
-- Enable buttons only when the view is ready
+- Only enable buttons when the view is ready
 - Add null checks before calling SDK methods
 
 #### 4. USB Microphone Not Recognized
@@ -286,7 +286,7 @@ viewModelScope.launch {
 
 **Solution**:
 - Voice recognition is blocked during avatar speech to prevent echo
-- Either stop the avatar speech first with `sendStopSpeech()`, or try after the speech completes
+- Stop avatar speech first with `sendStopSpeech()`, or try after speech completes
 
 ### Debugging Tips
 

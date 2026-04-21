@@ -1,7 +1,7 @@
 ---
 id: get-started
 sidebar_position: 3
-title: get-started
+title: はじめに
 sidebar_label: はじめに
 ---
 
@@ -11,15 +11,15 @@ sidebar_label: はじめに
 
 Klleon Ondevice SDKを使用する前に、以下の準備が必要です：
 
-1.  **Kleon Studioアカウント**: SDK機能を使用するには、[Kleon Studio](https://www.studio.klleon.io/)アカウントが必要です。アカウントをお持ちでない場合は、まずご登録ください。
-2.  **SDKキーの発行**: ドメイン登録後、該当ドメインで使用する固有の`sdk_key`が発行されます。このキーはSDKの初期化に必要です。
-3.  **アバターID**: 使用するAIアバターの`avatarId`が必要です。
+1.  **Kleon Studioアカウント**: SDK機能を使用するには [Kleon Studio](https://www.studio.klleon.io/) アカウントが必要です。アカウントをお持ちでない場合は、まずご登録ください。
+2.  **SDKキーの発行**: ドメイン登録後、該当ドメインで使用する固有の `sdk_key` が発行されます。このキーはSDKの初期化に必要です。
+3.  **アバターID**: 使用するAIアバターの `avatarId` が必要です。
 
 ## 権限
 
 ### AndroidManifest.xml
 
-`AndroidManifest.xml`に必要な権限を追加してください：
+`AndroidManifest.xml` に必要な権限を追加してください：
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -118,7 +118,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play()の呼び出しが可能です
+                // リソース準備完了 — play() 呼び出し可能
             },
             onError = { error ->
                 Log.e("MainActivity", "リソース準備失敗", error)
@@ -128,17 +128,17 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-### SDKの開始（play）
+### SDKの開始 (play)
 
 ```kotlin
-// play()はsuspend関数のため、コルーチンから呼び出します
+// play()はsuspend関数のためコルーチン内で呼び出し
 CoroutineScope(Dispatchers.IO).launch {
     klleonOndeviceSdk.play(
         context = this@Activity,               // Context
         klleonSdkViewInstance = sdkView,       // KlleonSdkViewインスタンス
         sdkKey = "YOUR_SDK_KEY",               // SDKキー
         avatarId = "character_001",            // アバターID
-        language = "ko_kr"                     // 言語（ko_kr, en_us, ja_jp）
+        language = "ko_kr"                     // 言語 (ko_kr, en_us, ja_jp)
     )
 }
 ```
@@ -150,12 +150,12 @@ CoroutineScope(Dispatchers.IO).launch {
 | `klleonSdkViewInstance` | KlleonSdkView? | O | レンダリングビューインスタンス |
 | `sdkKey` | String | O | SDK認証キー |
 | `avatarId` | String | O | AIアバターID |
-| `language` | String | O | 言語コード（`ko_kr`, `en_us`, `ja_jp`） |
+| `language` | String | O | 言語コード (`ko_kr`, `en_us`, `ja_jp`) |
 
 ## 次のステップ
 
 設定完了後：
 
-1. 使用可能なメソッドは[APIリファレンス](api-reference)をご確認ください
-2. 最適な統合のために[ガイド](../guides/guides)に従ってください
-3. 実装パターンは[使用例](../examples/examples)をご確認ください
+1. 使用可能なメソッドは [APIリファレンス](api-reference) を確認してください
+2. 最適な統合のために [ガイド](../guides/guides) に従ってください
+3. 実装パターンは [使用例](../examples/examples) を確認してください

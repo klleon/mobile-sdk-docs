@@ -7,8 +7,8 @@ sidebar_label: guides
 
 ### 1. 権限管理
 - SDKの初期化前に必ず権限を確認してください
-- ユーザーフレンドリーなメッセージで権限の拒否を処理してください
-- 必要な権限に対する明確な理由を提示してください
+- ユーザーフレンドリーなメッセージで権限拒否を処理してください
+- 必要な権限について明確な根拠を提供してください
 - さまざまなAndroidバージョンで権限フローをテストしてください
 
 ```kotlin
@@ -23,7 +23,7 @@ private fun showPermissionRationale() {
 
 ### 2. リソース管理
 
-`ResourceManager.init()`でリソースを初期化し、`onSuccess`コールバック後にのみ`play()`を呼び出してください。
+`ResourceManager.init()` でリソースを初期化し、`onSuccess` コールバック後にのみ `play()` を呼び出してください。
 
 #### 呼び出し順序
 
@@ -31,12 +31,12 @@ private fun showPermissionRationale() {
 アバター選択   → ResourceManager.init(avatarId) → onSuccess → sdk.play() → ... → sdk.finish()
 同じアバター   → ResourceManager.init(同一avatarId) → バッファ再利用 → 即座にonSuccess → sdk.play()
 アバター変更   → ResourceManager.init(新avatarId) → 自動で以前のバッファ解放 + 新規割り当て → onSuccess → sdk.play()
-アプリ終了     → ResourceManager.deinit()（Application.onDestroyまたはActivity.onDestroyで呼び出し）
+アプリ終了    → ResourceManager.deinit() (Application.onDestroyまたはActivity.onDestroyで呼び出し)
 ```
 
 #### 安全なクリーンアップパターン
 
-SDKを使用するActivityでは`onDestroy()`で`finish()`を呼び出してください：
+SDKを使用するActivityでは `onDestroy()` で `finish()` を呼び出してください：
 
 ```kotlin
 // ChatActivity（SDK play画面）
@@ -49,8 +49,8 @@ override fun onDestroy() {
 }
 ```
 
-アバター選択画面のように`init()`のみ呼び出し、`play()`は別のActivityで呼び出す場合、
-SDKが再生中でなければ`deinit()`でメモリを解放してください：
+アバター選択画面のように `init()` のみ呼び出し、`play()` は別のActivityで呼び出す場合、
+SDKが再生中でなければ `deinit()` でメモリを解放してください：
 
 ```kotlin
 // CharacterActivity（アバター選択画面）
@@ -62,9 +62,9 @@ override fun onDestroy() {
 }
 ```
 
-#### バックグラウンドでのメモリ解放
+#### バックグラウンドメモリ解放
 
-アプリがバックグラウンドに遷移すると、約1GBのYUVバッファが不必要に占有されます。`Application`に`ComponentCallbacks2`を登録して自動解放してください：
+アプリがバックグラウンドに遷移すると、約1GBのYUVバッファが不要に占有されます。`Application` に `ComponentCallbacks2` を登録して自動解放してください：
 
 ```kotlin
 class MyApplication : Application() {
@@ -83,17 +83,17 @@ class MyApplication : Application() {
 }
 ```
 
-### 3. 状態の監視
-- ViewModelを使用してSDKの状態変更を監視してください
-- コルーチンスコープで状態の更新を収集してください
+### 3. 状態観察
+- ViewModelを使用してSDKの状態変更を観察してください
+- コルーチンスコープで状態更新を収集してください
 - try-catchブロックでJSON応答を安全にパースしてください
-- UI変更のためにメインスレッドで状態の更新を処理してください
+- UI変更のためにメインスレッドで状態更新を処理してください
 
 ### 4. エラー処理
-- SDKメソッドの呼び出しをtry-catchブロックで囲んでください
-- デバッグのためにエラーを適切にログ出力してください
+- SDKメソッド呼び出しをtry-catchブロックで囲んでください
+- デバッグのためにエラーを適切にロギングしてください
 - 失敗した操作に対してユーザーフィードバックを提供してください
-- SDKメソッドの呼び出し前に入力を検証してください
+- SDKメソッド呼び出し前に入力を検証してください
 
 ```kotlin
 fun safeOperation() {
@@ -101,23 +101,23 @@ fun safeOperation() {
         klleonOndeviceSdk.sendMessage(message)
     } catch (e: Exception) {
         Log.e("SDK", "操作失敗", e)
-        showUserError("操作に失敗しました。もう一度お試しください。")
+        showUserError("操作が失敗しました。もう一度お試しください。")
     }
 }
 ```
 
 ### 5. UI統合
-- Composeで`AndroidView`を使用して`KlleonSdkView`を統合してください
-- SDKメソッドの呼び出し前にビューが適切に初期化されていることを確認してください
+- Composeで `AndroidView` を使用して `KlleonSdkView` を統合してください
+- SDKメソッド呼び出し前にビューが正しく初期化されていることを確認してください
 - ビューのライフサイクルを適切に処理してください
-- さまざまな画面サイズと向きでUIをテストしてください
+- さまざまな画面サイズと方向でUIをテストしてください
 
 ### 6. 音声認識の統合
 
-ボタンタップ時に音声認識を開始し、無音検出時に自動終了されます。
+ボタンタップ時に音声認識を開始し、無音検出時に自動終了します。
 
 ```kotlin
-// 音声認識の開始
+// 音声認識開始
 val success = klleonOndeviceSdk.startVoiceRecognition()
 
 // 結果はsdkState Flowで受信
@@ -125,7 +125,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
         "STT_RESULT" -> {
-            // 音声認識の最終結果
+            // 音声認識最終結果
             val text = json.getString("message")
         }
         "STT_PARTIAL" -> {
@@ -133,7 +133,7 @@ klleonOndeviceSdk.sdkState.collect { state ->
             val partialText = json.getString("message")
         }
         "STT_STATUS" -> {
-            // 音声認識の状態変化（準備中/再接続中/準備完了）
+            // 音声認識状態変化（準備中/再接続中/準備完了）
             val statusMessage = json.getString("message")
             showToast(statusMessage)
         }
@@ -141,9 +141,9 @@ klleonOndeviceSdk.sdkState.collect { state ->
 }
 ```
 
-### 7. 発話の中断
+### 7. 発話中断
 
-アバターが発話中の場合、即座に中断できます。
+アバターが発話中に即座に中断できます。
 
 ```kotlin
 klleonOndeviceSdk.sendStopSpeech()
@@ -151,20 +151,20 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ### 8. Android TV対応
 
-TVデバイスでは以下の事項を考慮してください：
+TVデバイスでは以下の点を考慮してください：
 
 - **画面回転**: `KlleonSdkView.setRenderRotation(270)` で270度回転をサポート
 - **リモコンキーマッピング**: 回転された画面に合わせて方向キーをマッピング
-- **フォーカス管理**: TVの自動フォーカスによるキーボードの自動表示を防止
+- **フォーカス管理**: TVの自動フォーカスによるキーボード自動表示の防止
 
 ```kotlin
-// TV用の画面回転
+// TV用画面回転
 klleonSdkView.setRenderRotation(270)
 ```
 
-### 9. 待機画面（Standby）モード
+### 9. 待機画面(Standby)モード
 
-コンピュータのスクリーンセーバーのように、一定時間無活動の場合にアバターを待機状態に切り替え、wake-wordで復帰する機能です。
+パソコンのスクリーンセーバーのように、一定時間無活動時にアバターを待機状態に遷移させ、wake-wordで復帰する機能です。
 
 #### フロー
 
@@ -174,22 +174,22 @@ play() → setIdleTimeout() → 会話 → TTS_END → 60秒無活動
   → wake-word検出 → exitStandby() + 言語切り替え → 会話再開
 ```
 
-#### 自動待機画面の設定
+#### 自動待機画面設定
 
 ```kotlin
-// play()呼び出し後にidle timeoutを有効化
+// play()呼び出し後にidle timeout有効化
 klleonOndeviceSdk.play(context, view, sdkKey, avatarId, language)
-klleonOndeviceSdk.setIdleTimeout(60_000L)  // 60秒無活動で自動待機
+klleonOndeviceSdk.setIdleTimeout(60_000L)  // 60秒無活動時に自動待機
 ```
 
-呼び出さない場合、自動待機画面機能は無効化されます。
+呼び出さなければ自動待機画面機能は無効化されます。
 
-#### Wake-wordで待機画面を解除
+#### Wake-wordで待機画面解除
 
-Wakewordマッチングと組み合わせて、音声コマンドで待機画面を解除できます。Wakewordマッチングは`enterStandby()`時に自動的に有効化され、`exitStandby()`時に自動的に無効化されるため、アプリ側で別途のon/off制御は不要です。
+Wakewordマッチングと組み合わせて、音声コマンドで待機画面を解除できます。Wakewordマッチングは `enterStandby()` 時に自動で有効化され、`exitStandby()` 時に自動で無効化されるため、アプリ側で別途のon/off制御は不要です。
 
 ```kotlin
-// Wakewordの登録（言語切り替え用）— 登録だけではマッチング無効
+// Wakeword登録（言語切り替え用）— 登録だけではマッチング無効
 klleonOndeviceSdk.registerWakewords(mapOf(
     "ジャパニーズ" to "ja_jp",
     "イングリッシュ" to "en_us",
@@ -201,96 +201,96 @@ klleonOndeviceSdk.registerWakewords(mapOf(
 klleonOndeviceSdk.wakewordDetected.collect { result ->
     klleonOndeviceSdk.sendChangeLanguage(result.tag)
     if (klleonOndeviceSdk.isStandby()) {
-        klleonOndeviceSdk.exitStandby()  // マッチングも自動無効化
+        klleonOndeviceSdk.exitStandby()  // マッチングも自動で無効化
     }
 }
 ```
 
 :::tip
-`sendChangeLanguage()`は`isStandby()`ガードの外に配置してください。現在のポリシーではstandby中にのみwakewordがマッチングされますが、防御的コーディングのためにガードの外に置くことをお勧めします。
+`sendChangeLanguage()` は `isStandby()` guardの外に配置してください。現在のポリシーではstandby中にのみwakewordがマッチしますが、防御的コーディングのためguardの外に置くことを推奨します。
 :::
 
 :::caution
-wake-word検出はSTTがアクティブ状態の場合にのみ動作します。`VoiceRecognitionMode.ALWAYS_ON`モードをご使用ください。`DISCRETE`モードではタッチ/ボタンなどの別の方法で解除する必要があります。
+wake-word検出はSTTがアクティブ状態の時にのみ動作します。`VoiceRecognitionMode.ALWAYS_ON` モードを使用してください。`DISCRETE` モードではタッチ/ボタンなどの別の方法で解除する必要があります。
 :::
 
-#### STANDBY_ENTERイベントの受信
+#### STANDBY_ENTERイベント受信
 
-自動待機画面進入時に`sdkState`へ`STANDBY_ENTER`イベントが発行されます。アプリでUI更新（オーバーレイ表示など）にご活用いただけます。
+自動待機画面進入時に `sdkState` で `STANDBY_ENTER` イベントが発行されます。アプリでUI更新（オーバーレイ表示など）に活用できます。
 
 ```kotlin
 klleonOndeviceSdk.sdkState.collect { state ->
     if (state.contains("STANDBY_ENTER")) {
-        // 待機画面UIの表示
+        // 待機画面UI表示
     }
 }
 ```
 
-## パフォーマンスの最適化
+## パフォーマンス最適化
 
 
 ### メモリ管理
 ```kotlin
-// Composeでrememberを使用してオブジェクトの再生成を防止
+// Composeでrememberを使用してオブジェクト再生成を防止
 val vpPath = remember { File(context.cacheDir, "loop_sample.mp4").absolutePath }
 ```
 
 ### スレッディング
 ```kotlin
-// 状態監視に適切なコルーチンスコープを使用
+// 状態観察のために適切なコルーチンスコープを使用
 viewModelScope.launch {
     klleonOndeviceSdk.sdkState.collect { state ->
-        // 状態の更新を処理
+        // 状態更新の処理
     }
 }
 ```
 
 ## トラブルシューティング
 
-### よくある問題
+### 一般的な問題
 
-#### 1. 権限の拒否
-**問題**: `RECORD_AUDIO`権限が許可されていない
+#### 1. 権限が拒否されました
+**問題**: `RECORD_AUDIO` 権限が許可されていません
 
 **解決策**:
-- `AndroidManifest.xml`に権限が宣言されていることを確認
+- `AndroidManifest.xml` に権限が宣言されているか確認
 - 権限処理ロジックを確認
 - さまざまなAndroidバージョンでテスト
 
-#### 2. SDK状態が更新されない
-**問題**: 状態の監視が動作しない
+#### 2. SDKの状態が更新されない
+**問題**: 状態観察が動作しません
 
 **解決策**:
-- ViewModelで状態の監視が適切に設定されていることを確認
-- コルーチンスコープがアクティブであることを確認
-- 状態の収集が開始されていることを確認
+- ViewModelで状態観察が正しく設定されているか確認
+- コルーチンスコープがアクティブであるか確認
+- 状態収集が開始されているか確認
 
 #### 3. ビューが準備されていない
-**問題**: `play()`の呼び出し前に`KlleonSdkView`が初期化されていない
+**問題**: `play()` 呼び出し前に `KlleonSdkView` が初期化されていません
 
 **解決策**:
-- `AndroidView`ファクトリでビューの初期化を確認
-- ビューが準備された時点でのみボタンを有効化
-- SDKメソッドの呼び出し前にnullチェックを追加
+- `AndroidView` ファクトリでビューの初期化を確認
+- ビューが準備できた時のみボタンを有効化
+- SDKメソッド呼び出し前にnullチェックを追加
 
 #### 4. USBマイクが認識されない
-**問題**: USBマイクを接続したがSDKで使用されない
+**問題**: USBマイクを接続したがSDKで使用されません
 
 **解決策**:
-- `hasUsbMicrophone()`で接続状態を確認
-- MMAPポリシーはSDK内部で管理されます（デフォルト: 無効）。一部のUSBマイクはMMAP非互換です
+- `hasUsbMicrophone()` で接続状態を確認
+- MMAPポリシーはSDK内部で管理されます（デフォルト：無効化）。一部のUSBマイクはMMAP非互換です
 - デバイスログを確認: `adb logcat | grep "Ondevice_Mic"`
 
 #### 5. アバター発話中に音声認識ができない
-**問題**: アバターが話している間、音声認識が開始されない
+**問題**: アバターが話している間に音声認識が開始されません
 
 **解決策**:
 - エコー防止のため、アバター発話中は音声認識がブロックされます
-- `sendStopSpeech()`でアバターの発話をまず中断するか、発話完了後にお試しください
+- `sendStopSpeech()` でアバターの発話を先に中断するか、発話完了後にお試しください
 
 ### デバッグのヒント
 
-#### 状態のモニタリング
+#### 状態モニタリング
 ```kotlin
 // すべての状態変更をモニタリング
 klleonOndeviceSdk.sdkState.collect { state ->
@@ -300,16 +300,16 @@ klleonOndeviceSdk.sdkState.collect { state ->
         val json = JSONObject(state)
         val message = json.getString("message")
         val chatType = json.optString("chat_type", "unknown")
-        Log.d("SDKState", "パース結果 - chatType: $chatType, メッセージ: $message")
+        Log.d("SDKState", "パース済み - chatType: $chatType, メッセージ: $message")
     } catch (e: Exception) {
-        Log.w("SDKState", "状態JSONのパースに失敗", e)
+        Log.w("SDKState", "状態JSONパース失敗", e)
     }
 }
 ```
 
-#### レコーダー状態のモニタリング
+#### レコーダー状態モニタリング
 ```kotlin
-// レコーダーの状態変更をモニタリング
+// レコーダー状態変更をモニタリング
 klleonOndeviceSdk.recorderState.collect { state ->
     when (state) {
         is OboeRecorderState.Recording -> {

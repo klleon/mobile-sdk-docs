@@ -45,14 +45,14 @@ fun SdkViewComponent() {
 TVなどで画面回転が必要な場合に使用します。
 
 ```kotlin
-klleonSdkView.setRenderRotation(270) // 0, 90, 270度に対応
+klleonSdkView.setRenderRotation(270) // 0, 90, 270度をサポート
 ```
 
 ---
 
 ## ResourceManager
 
-リソースの初期化および解放を担当するクラスです。`play()`の前に必ず`init()`でリソースを準備する必要があります。
+リソースの初期化および解放を担当するクラスです。`play()` の前に必ず `init()` でリソースを準備する必要があります。
 
 ```kotlin
 val resourceManager = ResourceManager()
@@ -81,7 +81,7 @@ resourceManager.init(
 | `mp4FileName` | String | O | アバターMP4ファイル名（assets内） |
 | `npzFileName` | String | O | アバターNPZファイル名（assets内） |
 | `styleFileName` | String | X | スタイルファイル名（デフォルト: ""） |
-| `avatarId` | String | X | アバターID。同一アバターへの再入時はバッファを再利用して即座に`onSuccess`を返します |
+| `avatarId` | String | X | アバターID。同一アバター再進入時にバッファを再利用して即座に `onSuccess` を返します |
 | `onSuccess` | () -> Unit | O | リソース準備完了コールバック |
 | `onError` | (Throwable) -> Unit | O | エラーコールバック |
 
@@ -94,7 +94,7 @@ resourceManager.init(
     styleFileName = "loop_sample.style",
     avatarId = "character_001",
     onSuccess = {
-        // 準備完了 — play()はsuspendのためコルーチンから呼び出します
+        // 準備完了 — play()はsuspendのためコルーチン内で呼び出し
         CoroutineScope(Dispatchers.IO).launch {
             klleonOndeviceSdk.play(context, sdkView, sdkKey, avatarId, language)
         }
@@ -105,27 +105,27 @@ resourceManager.init(
 )
 ```
 
-:::info バッファの再利用
-同一アバター（`avatarId`）で`init()`を再呼び出しすると、すでに準備されたバッファを再利用して即座に`onSuccess`を返します。別のアバターに切り替える場合は、以前のバッファを解放してから新たに割り当てます。
+:::info バッファ再利用
+同一アバター(`avatarId`)で `init()` を再呼び出しすると、既に準備されたバッファを再利用して即座に `onSuccess` を返します。異なるアバターに切り替える場合は、以前のバッファを解放して新たに割り当てます。
 :::
 
 ### deinit()
 
-ネイティブYUVバッファメモリを解放し、リソースの状態を初期化します。
+ネイティブYUVバッファメモリを解放し、リソース状態を初期化します。
 
 ```kotlin
 resourceManager.deinit()
 ```
 
-:::tip 冪等性の保証
-`deinit()`は複数回呼び出しても安全です。すでに解放された状態で呼び出すとno-opとなります。
+:::tip 冪等性保証
+`deinit()` は複数回呼び出しても安全です。既に解放された状態で呼び出すとno-opとなります。
 :::
 
-### 呼び出しルール
+### 呼び出し規則
 
-1. **`init()`** — アバター選択完了時に呼び出します。アバター変更時は以前のバッファを自動解放します。
-2. **`play()`** — `init()`の`onSuccess`コールバックが呼ばれた場合にのみ呼び出し可能です
-3. **`deinit()`** — アプリ完全終了時に呼び出します。`finish()`はバッファを保持して同一アバターへの再入を最適化します。
+1. **`init()`** — アバター選択完了時に呼び出し。アバター変更時に以前のバッファを自動解放します。
+2. **`play()`** — `init()` の `onSuccess` コールバックが来た時のみ呼び出し可能
+3. **`deinit()`** — アプリ完全終了時に呼び出し。`finish()` はバッファを維持して同一アバター再進入を最適化します。
 
 ---
 
@@ -133,7 +133,7 @@ resourceManager.deinit()
 
 ### play()
 
-AIアバターのビデオ再生を開始します。`suspend`関数のため、コルーチン内で呼び出す必要があります。
+AIアバタービデオ再生を開始します。`suspend` 関数のため、コルーチン内で呼び出す必要があります。
 
 ```kotlin
 suspend fun play(
@@ -152,7 +152,7 @@ suspend fun play(
 | `klleonSdkViewInstance` | KlleonSdkView? | O | レンダリングビュー |
 | `sdkKey` | String | O | SDK認証キー |
 | `avatarId` | String | O | AIアバターID |
-| `language` | String | O | 言語コード（`ko_kr`, `en_us`, `ja_jp`） |
+| `language` | String | O | 言語コード (`ko_kr`, `en_us`, `ja_jp`) |
 
 **例:**
 ```kotlin
@@ -179,8 +179,8 @@ klleonOndeviceSdk.connect()
 
 ### finish()
 
-SDKを停止し、すべてのリソースをクリーンアップします。`suspend`関数のため、コルーチン内で呼び出す必要があります。
-内部バッファは同一アバターへの再入時の再利用のために保持されます（ソフトリセット）。
+SDKを停止し、すべてのリソースを整理します。`suspend` 関数のため、コルーチン内で呼び出す必要があります。
+内部バッファは同一アバター再進入時の再利用のために維持されます（ソフトリセット）。
 
 ```kotlin
 // Activity終了時
@@ -191,13 +191,13 @@ CoroutineScope(Dispatchers.Default).launch {
 
 ### awaitFinish()
 
-進行中の`finish()`が完了するまで待機します。終了中でない場合は即座に返されます。
-`finish()`後すぐに`play()`を再呼び出しする場合、`ResourceManager.init()`の前に呼び出してリソースの競合を防止します。
+進行中の `finish()` が完了するまで待機します。終了中でなければ即座に返されます。
+`finish()` 後すぐに `play()` を再呼び出しする場合、`ResourceManager.init()` の前に呼び出してリソース競合を防止します。
 
 ```kotlin
-// 素早い再入時
+// 高速再進入時
 CoroutineScope(Dispatchers.Default).launch {
-    klleonOndeviceSdk.awaitFinish()  // 以前の終了完了を待機
+    klleonOndeviceSdk.awaitFinish()  // 前回の終了完了を待機
     ResourceManager.init(context, ...)
 }
 ```
@@ -253,24 +253,24 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ## Wakeword API
 
-STT認識結果から登録されたwakewordを検出し、コールバックを伝達します。Wakewordがマッチングされると、該当STT結果は通常の会話入力（`STT_RESULT`）から除外されます。
+STT認識結果から登録されたwakewordを検出してコールバックを渡します。Wakewordがマッチすると、該当STT結果は通常の会話入力(`STT_RESULT`)から除外されます。
 
 :::note Standby連動ポリシー
-Wakewordマッチングはデフォルトで**無効化**状態です。`enterStandby()`呼び出し時に自動的に有効化され、`exitStandby()`呼び出し時に自動的に無効化されます。`registerWakewords()`でwakewordを登録しても、standbyモードに進入しないとマッチングは動作しません。
+Wakewordマッチングは基本的に**無効**状態です。`enterStandby()` 呼び出し時に自動で有効化され、`exitStandby()` 呼び出し時に自動で無効化されます。`registerWakewords()` でwakewordを登録しても、standbyモードに入ってからマッチングが動作します。
 :::
 
 :::info STT言語とwakeword
-`play(language)`または`sendChangeLanguage(language)`で設定した言語がSTT認識言語としても適用されます。Wakewordマッチングは該当言語のSTT認識結果で動作するため、**各言語のSTTが認識できるwakewordを登録**する必要があります。
+`play(language)` または `sendChangeLanguage(language)` で設定した言語がSTT認識言語としても適用されます。Wakewordマッチングは該当言語のSTT認識結果で動作するため、**各言語のSTTが認識できるwakewordを登録**する必要があります。
 
 例：
-- 韓国語STT → `"영어"`、`"일본어"`、`"니혼고"` などの韓国語発音wakeword
-- 日本語STT → `"韓国語"`、`"英語"`、`"コリアン"` などの日本語認識wakeword
-- 英語STT → `"Korean"`、`"Japanese"` などの英語wakeword
+- 韓国語STT → `"영어"`, `"일본어"`, `"니혼고"` など韓国語発音のwakeword
+- 日本語STT → `"韓国語"`, `"英語"`, `"コリアン"` など日本語認識のwakeword
+- 英語STT → `"Korean"`, `"Japanese"` など英語のwakeword
 :::
 
 ### registerWakewords()
 
-Wakewordを登録します。既存のwakewordを全て置き換えます。登録だけではマッチングは動作せず、`enterStandby()`進入時に有効化されます。
+Wakewordを登録します。既存のwakewordを全体置換します。登録だけではマッチングは動作せず、`enterStandby()` 進入時に有効化されます。
 
 ```kotlin
 fun registerWakewords(wakewords: Map<String, String>)
@@ -279,11 +279,11 @@ fun registerWakewords(wakewords: Map<String, String>)
 **パラメータ:**
 | パラメータ | 型 | 説明 |
 |---------|------|------|
-| `wakewords` | Map\<String, String\> | wakeword → タグマップ。Wakewordが検出されるとタグ値がコールバックで伝達されます |
+| `wakewords` | Map\<String, String\> | wakeword → タグマップ。Wakewordが検出されるとタグ値がコールバックで渡されます |
 
 **例:**
 ```kotlin
-// 言語切り替え用wakewordの登録
+// 言語切り替え用wakeword登録
 klleonOndeviceSdk.registerWakewords(mapOf(
     "니혼고" to "ja_jp", "일본어" to "ja_jp",
     "잉글리쉬" to "en_us", "영어" to "en_us",
@@ -293,7 +293,7 @@ klleonOndeviceSdk.registerWakewords(mapOf(
 
 ### clearWakewords()
 
-登録されたwakewordを全て初期化します。初期化後はwakewordマッチングが動作せず、すべてのSTT結果が`STT_RESULT`として伝達されます。
+登録されたwakewordを全初期化します。初期化後はwakewordマッチングが動作せず、すべてのSTT結果が `STT_RESULT` として渡されます。
 
 ```kotlin
 klleonOndeviceSdk.clearWakewords()
@@ -301,7 +301,7 @@ klleonOndeviceSdk.clearWakewords()
 
 ### wakewordDetected
 
-Wakewordマッチング結果を発行する`SharedFlow`です。
+Wakewordマッチング結果を発行する `SharedFlow` です。
 
 ```kotlin
 val wakewordDetected: SharedFlow<WakewordResult>
@@ -310,9 +310,9 @@ val wakewordDetected: SharedFlow<WakewordResult>
 **WakewordResult:**
 | フィールド | 型 | 説明 |
 |------|------|------|
-| `wakeword` | String | マッチングされたwakeword原文（例：`"니혼고"`） |
-| `tag` | String | 登録時に指定したタグ（例：`"ja_jp"`） |
-| `fullText` | String | STTが認識した全体テキスト |
+| `wakeword` | String | マッチしたwakeword原文（例: `"니혼고"`） |
+| `tag` | String | 登録時に指定したタグ（例: `"ja_jp"`） |
+| `fullText` | String | STTが認識した全テキスト |
 
 **例:**
 ```kotlin
@@ -326,16 +326,16 @@ LaunchedEffect(Unit) {
 ```
 
 :::tip
-SDKはwakewordが何を意味するかには関与しません。タグ値はアプリが自由に定義でき、言語コード以外にも`"mode_quiet"`、`"stop"`などどのような文字列でも使用可能です。
+SDKはwakewordが何を意味するかには関与しません。タグ値はアプリが自由に定義でき、言語コード以外にも `"mode_quiet"`、`"stop"` など任意の文字列を使用できます。
 :::
 
 ---
 
-## 待機画面（Standby）API
+## 待機画面(Standby) API
 
 ### enterStandby()
 
-待機画面モードに進入します。パイプライン全体をクリーンアップ（キューのクリア、オーディオバッファの破棄、タイミングの初期化）した後、ビデオデコードとオーディオ再生を一時停止します。リソースは維持されます。
+待機画面モードに進入します。パイプライン全体を整理（キューのクリア、オーディオバッファの破棄、タイミング初期化）した後、ビデオデコーディングとオーディオ再生を一時停止します。リソースは維持されます。
 
 ```kotlin
 klleonOndeviceSdk.enterStandby()
@@ -343,7 +343,7 @@ klleonOndeviceSdk.enterStandby()
 
 ### exitStandby()
 
-待機画面モードを解除します。ビデオデコードとオーディオ再生を再開します。
+待機画面モードを解除します。ビデオデコーディングとオーディオ再生を再開します。
 
 ```kotlin
 klleonOndeviceSdk.exitStandby()
@@ -351,7 +351,7 @@ klleonOndeviceSdk.exitStandby()
 
 ### isStandby()
 
-待機画面モード状態かどうかを確認します。
+待機画面モード状態であるかを確認します。
 
 ```kotlin
 val isStandby: Boolean = klleonOndeviceSdk.isStandby()
@@ -359,7 +359,7 @@ val isStandby: Boolean = klleonOndeviceSdk.isStandby()
 
 ### setIdleTimeout(timeoutMs)
 
-idle timeoutを有効化します。アバター発話終了（TTS_END）後、指定時間の間無活動の場合に自動的に`enterStandby()`を呼び出します。`STANDBY_ENTER`イベントが`sdkState`に発行された後、待機画面に進入します。
+idle timeoutを有効化します。アバター発話終了(TTS_END)後、指定時間無活動の場合に自動で `enterStandby()` を呼び出します。`STANDBY_ENTER` イベントが `sdkState` に発行された後、待機画面に進入します。
 
 ```kotlin
 // デフォルト値60秒
@@ -370,12 +370,12 @@ klleonOndeviceSdk.setIdleTimeout(30_000L)
 ```
 
 :::info
-`play()`呼び出しの前後いつでも呼び出し可能です。呼び出さない場合、自動待機画面機能は無効化状態です。
+`play()` 呼び出しの前後いずれの時点でも呼び出し可能です。呼び出さなければ自動待機画面機能は無効状態です。
 :::
 
 ### disableIdleTimeout()
 
-idle timeoutを無効化します。有効化されたタイマーがある場合はキャンセルされます。
+idle timeoutを無効化します。有効化されたタイマーがあればキャンセルされます。
 
 ```kotlin
 klleonOndeviceSdk.disableIdleTimeout()
@@ -383,7 +383,7 @@ klleonOndeviceSdk.disableIdleTimeout()
 
 ### isResponding: StateFlow\<Boolean\>
 
-アバターが応答準備中または発話中であれば`true`。`PREPARING_RESPONSE`受信時に`true`、`TTS_END`または`ERROR`受信時に`false`に切り替わります。
+アバターが応答準備中または発話中であれば `true`。`PREPARING_RESPONSE` 受信時に `true`、`TTS_END` または `ERROR` 受信時に `false` に遷移します。
 
 ```kotlin
 // 現在の値を確認
@@ -393,7 +393,7 @@ if (klleonOndeviceSdk.isResponding.value) {
 
 // Flowで購読
 klleonOndeviceSdk.isResponding.collect { responding ->
-    // UIの更新
+    // UI更新
 }
 ```
 
@@ -403,7 +403,7 @@ klleonOndeviceSdk.isResponding.collect { responding ->
 
 ### startVoiceRecognition()
 
-音声認識を開始します。マイク録音を開始し、WebSocketでSTART_VOICE信号を送信します。無音が検出されると自動的に録音を終了し、END_VOICE信号を送信します。
+音声認識を開始します。マイク録音を開始し、WebSocketでSTART_VOICEシグナルを送信します。無音が検出されると自動的に録音を終了し、END_VOICEシグナルを送信します。
 
 ```kotlin
 fun startVoiceRecognition(
@@ -412,9 +412,9 @@ fun startVoiceRecognition(
 ```
 
 **パラメータ:**
-- `config`: 無音検出設定（任意、デフォルト: `SilenceDetectionConfig.default()`）
+- `config`: 無音検出設定（オプション、デフォルト: `SilenceDetectionConfig.default()`）
 
-**戻り値:** 成功の有無（Boolean）
+**戻り値:** 成功可否 (Boolean)
 
 **例:**
 ```kotlin
@@ -438,7 +438,7 @@ klleonOndeviceSdk.stopVoiceRecognition()
 
 ### isVoiceRecognizing()
 
-音声認識中かどうかを確認します。
+音声認識中であるかを確認します。
 
 ```kotlin
 val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
@@ -446,7 +446,7 @@ val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
 
 ### voiceRecognitionMode
 
-音声認識モードを設定します。`play()`の呼び出し前に設定する必要があります。
+音声認識モードを設定します。`play()` 呼び出し前に設定する必要があります。
 
 ```kotlin
 klleonOndeviceSdk.voiceRecognitionMode = VoiceRecognitionMode.ALWAYS_ON
@@ -468,7 +468,7 @@ val success: Boolean = klleonOndeviceSdk.startAlwaysOnListening()
 
 ### isAutoListening()
 
-ALWAYS_ON自動リスニング中かどうかを確認します。
+ALWAYS_ON自動リスニング中であるかを確認します。
 
 ```kotlin
 val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
@@ -480,7 +480,7 @@ val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
 
 ### hasRecordAudioPermission()
 
-RECORD_AUDIO権限があるかどうかを確認します。
+RECORD_AUDIO権限があるかを確認します。
 
 ```kotlin
 val hasPermission: Boolean = klleonOndeviceSdk.hasRecordAudioPermission()
@@ -488,7 +488,7 @@ val hasPermission: Boolean = klleonOndeviceSdk.hasRecordAudioPermission()
 
 ### hasUsbMicrophone()
 
-USBマイクが接続されているかどうかを確認します。
+USBマイクが接続されているかを確認します。
 
 ```kotlin
 val hasUsb: Boolean = klleonOndeviceSdk.hasUsbMicrophone()
@@ -500,13 +500,13 @@ val hasUsb: Boolean = klleonOndeviceSdk.hasUsbMicrophone()
 
 ### sdkState
 
-SDK状態の更新をJSON文字列で発行するSharedFlowです。
+SDK状態の更新をJSON文字列として発行するSharedFlowです。
 
 ```kotlin
 klleonOndeviceSdk.sdkState: SharedFlow<String>
 ```
 
-**使用方法:**
+**使用法:**
 ```kotlin
 klleonOndeviceSdk.sdkState.collect { state ->
     val messageToAdd = try {
@@ -516,12 +516,12 @@ klleonOndeviceSdk.sdkState.collect { state ->
         state.toString()
     }
 
-    // 状態の更新を処理
+    // 状態更新の処理
     updateUI(messageToAdd)
 }
 ```
 
-**状態フォーマット（JSON）:**
+**状態フォーマット (JSON):**
 ```json
 {
   "message": "",
@@ -537,11 +537,11 @@ klleonOndeviceSdk.sdkState.collect { state ->
 | `WSS_OPEN` | WebSocket接続成功 |
 | `WSS_FAILURE` | WebSocket接続失敗 |
 | `WSS_CLOSING` | WebSocket接続終了中 |
-| `WSS_CLOSED` | WebSocket接続終了 |
-| `WSS_RETRY_OVER` | 最大リトライ回数超過 |
+| `WSS_CLOSED` | WebSocket接続終了済み |
+| `WSS_RETRY_OVER` | 最大リトライ超過 |
 | `WSS_NOT_CONNECTED` | 未接続状態 |
 | `ACTIVATE_VOICE` | 音声入力受信準備完了 |
-| `TEXT` | サーバーからテキスト応答受信 |
+| `TEXT` | サーバーからのテキスト応答受信 |
 | `RESPONSE_IS_ENDED` | サーバー応答ストリーム終了 |
 | `TTS_START` | TTS音声再生開始 |
 | `TTS_END` | TTS音声再生完了（発話終了検出に使用） |
@@ -556,21 +556,20 @@ klleonOndeviceSdk.sdkState.collect { state ->
 | `WORKER_DISCONNECTED` | ソケット接続終了 |
 | `SPEECH_START` | アバター発話開始 |
 | `SPEECH_END` | アバター発話終了 |
-| `STANDBY_ENTER` | 自動待機画面モード進入 |
 | `STOP_RESPONSE_MESSAGE` | 現在のアバター発話中断 |
 
-#### STT_STATUSの詳細
+#### STT_STATUS詳細
 
-音声認識セッションの一時的な状態変化を通知します。トークンベースの認証を使用するSTTプロバイダー（Azureなど）で発生します。
+音声認識セッションの一時的な状態変化を通知します。トークンベース認証を使用するSTTプロバイダー（Azureなど）で発生します。
 
 | 状態 | message値 | 意味 | 発生タイミング |
 |------|------------|------|-----------|
-| `Preparing` | `音声認識準備中` | トークン待機中のため認識開始が遅延しています | トークン未受信状態で音声認識開始時 |
-| `Recovering` | `音声認識再接続中` | 認証失敗によりトークン再発行を待機中です | 認識中に認証トークン期限切れ時 |
-| `Ready` | `音声認識準備完了` | 復旧完了、音声認識再開 | トークン再発行後の認識再開時 |
+| `Preparing` | `音声認識準備中` | トークン待機中のため認識開始が遅延 | トークン未受信状態で音声認識開始時 |
+| `Recovering` | `音声認識再接続中` | 認証失敗によりトークン再発行待機中 | 認識中に認証トークン期限切れ時 |
+| `Ready` | `音声認識準備完了` | 復旧完了、音声認識再開 | トークン再発行後に認識再開時 |
 
 :::tip
-`STT_STATUS`は一時的な状態通知です。`音声認識準備中`または`音声認識再接続中`を受信した場合はトーストなどでユーザーに案内し、`音声認識準備完了`を受信した際に自然に解除してください。
+`STT_STATUS` は一時的な状態通知です。`音声認識準備中` または `音声認識再接続中` 受信時にユーザーにトーストなどで案内し、`音声認識準備完了` 受信時に自然に解除してください。
 :::
 
 ### recorderState
@@ -605,23 +604,23 @@ import io.klleon.ondevice.audio.oboe.SilenceDetectionConfig
 |------|------|--------|------|
 | `silenceThreshold` | Float | 0.02 | 無音判定レベル閾値 |
 | `speechThreshold` | Float | 0.05 | 音声判定レベル閾値 |
-| `speechTimeoutMs` | Long | 5000 | 音声入力待機時間（ms） |
-| `silenceTimeoutMs` | Long | 2000 | 音声後の無音検出時間（ms） |
-| `maxRecordingTimeMs` | Long | 60000 | 最大録音時間（ms、0=無制限） |
-| `preBufferMs` | Int | 300 | 音声開始前のオーディオ保持（ms） |
-| `preBufferDelayMs` | Long | 300 | プリバッファフラッシュ遅延（ms） |
+| `speechTimeoutMs` | Long | 5000 | 音声入力待機時間 (ms) |
+| `silenceTimeoutMs` | Long | 2000 | 音声後の無音検出時間 (ms) |
+| `maxRecordingTimeMs` | Long | 60000 | 最大録音時間 (ms, 0=無制限) |
+| `preBufferMs` | Int | 300 | 音声開始前のオーディオ保存 (ms) |
+| `preBufferDelayMs` | Long | 300 | プリバッファフラッシュ遅延 (ms) |
 
 **プリセット:**
 | プリセット | 特徴 |
 |--------|------|
 | `SilenceDetectionConfig.default()` | デフォルト設定 |
-| `SilenceDetectionConfig.fast()` | 高速応答（speechTimeout 3秒、silenceTimeout 1.5秒） |
-| `SilenceDetectionConfig.longSpeech()` | 長い発話（speechTimeout 7秒、silenceTimeout 3秒、maxRecording 120秒） |
-| `SilenceDetectionConfig.noisyEnvironment()` | 騒音環境（閾値上昇: silence 0.05、speech 0.10） |
+| `SilenceDetectionConfig.fast()` | 高速応答 (speechTimeout 3秒, silenceTimeout 1.5秒) |
+| `SilenceDetectionConfig.longSpeech()` | 長い発話 (speechTimeout 7秒, silenceTimeout 3秒, maxRecording 120秒) |
+| `SilenceDetectionConfig.noisyEnvironment()` | 騒音環境 (閾値上方修正: silence 0.05, speech 0.10) |
 
 **例:**
 ```kotlin
-// プリセットの使用
+// プリセット使用
 klleonOndeviceSdk.startVoiceRecognition(SilenceDetectionConfig.fast())
 
 // カスタム設定
@@ -658,7 +657,7 @@ var klleonSdkView: KlleonSdkView?
 
 | プロパティ | 型 | 説明 |
 |---------|------|------|
-| `isStopping` | Boolean | SDKが現在終了中かどうか（`finish()`進行中なら`true`） |
+| `isStopping` | Boolean | SDKが現在終了中であるか（`finish()` 進行中であれば `true`） |
 
 ---
 
@@ -671,13 +670,13 @@ try {
     klleonOndeviceSdk.sendMessage(message)
 } catch (e: Exception) {
     Log.e("KlleonSDK", "操作失敗", e)
-    // 適切にエラーを処理
+    // 適切にエラー処理
 }
 ```
 
 ## ライフサイクル管理
 
-`play()`と`finish()`は`suspend`関数です。Activityのライフサイクルではコルーチンでラップして呼び出します。
+`play()` と `finish()` は `suspend` 関数です。Activityライフサイクルではコルーチンでラップして呼び出します。
 
 ```kotlin
 class ChatActivity : ComponentActivity() {
@@ -687,22 +686,22 @@ class ChatActivity : ComponentActivity() {
         super.onDestroy()
         // finish()はsuspendのためコルーチンで実行
         CoroutineScope(Dispatchers.Default).launch {
-            sdk.finish()  // SDK停止（バッファは再利用のために保持）
+            sdk.finish()  // SDK停止（バッファは再利用のために維持）
         }
         ResourceManager.deinit()  // アプリ完全終了時にのみ呼び出し
     }
 }
 ```
 
-### 素早い再入（finish → play）
+### 高速再進入 (finish → play)
 
-`finish()`後すぐに`play()`を呼び出すと、リソースの競合が発生する可能性があります。
-`awaitFinish()`を使用して、以前の終了が完了した後に進めてください：
+`finish()` 後すぐに `play()` を呼び出すと、リソース競合が発生する可能性があります。
+`awaitFinish()` を使用して、前回の終了が完了した後に進めてください：
 
 ```kotlin
-// キャラクター選択画面で新しいアバターを開始する場合
+// キャラクター選択画面で新しいアバター開始時
 CoroutineScope(Dispatchers.Default).launch {
-    sdk.awaitFinish()  // 以前のfinish()が進行中なら完了を待機
+    sdk.awaitFinish()  // 前回のfinish()が進行中であれば完了を待機
     ResourceManager.init(context, mp4, npz, style, avatarId,
         onSuccess = { /* ChatActivity開始 → play() */ },
         onError = { /* エラー処理 */ }

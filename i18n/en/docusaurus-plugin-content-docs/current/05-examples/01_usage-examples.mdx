@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // Resources ready — you can now call play()
+                // Resources ready — play() can be called
             },
             onError = { error ->
                 Log.e("MainActivity", "Resource preparation failed", error)
@@ -251,23 +251,23 @@ fun WorkerScreen(
 
 ### Exiting Standby with Wake-word
 
-An example of exiting standby via voice wakeword commands.
-Wakeword matching is automatically enabled on `enterStandby()` and automatically disabled on `exitStandby()`.
+An example of exiting standby via voice commands combined with wakeword matching.
+Wakeword matching is automatically enabled upon `enterStandby()` and automatically disabled upon `exitStandby()`.
 
 ```kotlin
-// Register wakewords — matching inactive until standby (auto-enabled on standby entry)
+// Register wakewords — registration alone does not activate matching (auto-activated on standby entry)
 klleonOndeviceSdk.registerWakewords(mapOf(
     "ジャパニーズ" to "ja_jp",
     "イングリッシュ" to "en_us",
     "コリアン" to "ko_kr",
 ))
 
-// Switch language + exit standby on wakeword detection
+// Switch language + exit standby when wakeword is detected
 LaunchedEffect(Unit) {
     klleonOndeviceSdk.wakewordDetected.collect { result ->
         klleonOndeviceSdk.sendChangeLanguage(result.tag)
         if (klleonOndeviceSdk.isStandby()) {
-            klleonOndeviceSdk.exitStandby()  // Matching also auto-disabled
+            klleonOndeviceSdk.exitStandby()  // Matching is also automatically disabled
         }
     }
 }
@@ -279,20 +279,20 @@ LaunchedEffect(Unit) {
 LaunchedEffect(Unit) {
     klleonOndeviceSdk.sdkState.collect { state ->
         if (state.contains("STANDBY_ENTER")) {
-            // Show standby UI (overlay, etc.)
+            // Display standby UI (overlay, etc.)
         }
     }
 }
 ```
 
-### Avatar Response State Monitoring
+### Monitoring Avatar Response State
 
 ```kotlin
 // Subscribe via StateFlow
 val isResponding by klleonOndeviceSdk.isResponding.collectAsState()
 
 if (isResponding) {
-    // Avatar is preparing response or speaking
+    // Avatar is preparing a response or speaking
     Text("Responding...")
 }
 ```
@@ -317,7 +317,7 @@ class WorkerViewModel : ViewModel() {
 
                     when (chatType) {
                         "STT_RESULT" -> "[STT] $message"
-                        "STT_PARTIAL" -> "[STT Partial] $message"
+                        "STT_PARTIAL" -> "[STT Interim] $message"
                         "RESPONSE" -> "[Avatar] $message"
                         else -> message
                     }
@@ -397,7 +397,7 @@ fun SimpleSDKIntegration() {
 
 ## Avatar Switching Example
 
-`init()` automatically detects avatar changes. If it's the same avatar, the buffer is immediately reused; if it's a different avatar, the previous buffer is released and a new one is allocated.
+`init()` automatically detects avatar changes. For the same avatar, buffers are reused immediately; for a different avatar, the previous buffer is released before allocating a new one.
 
 ```kotlin
 class CharacterSelectActivity : ComponentActivity() {
@@ -405,7 +405,7 @@ class CharacterSelectActivity : ComponentActivity() {
     fun onAvatarSelected(avatarMp4: String, avatarNpz: String, avatarId: String) {
         // init() compares avatarId and automatically handles buffer reuse/switching
         // Same avatar: immediate onSuccess (0ms)
-        // Different avatar: previous buffer released + new allocation
+        // Different avatar: release previous buffer + new allocation
         ResourceManager.init(
             context = this,
             mp4FileName = avatarMp4,
@@ -458,18 +458,18 @@ fun SDKStateObserver(klleonOndeviceSdk: KlleonOndeviceSdk) {
 
 ## Wakeword-based Language Switching (Standby Integration)
 
-An example of detecting voice wakewords in standby mode to automatically switch the avatar's conversation language and exit standby.
+An example of automatically switching the avatar's conversation language and exiting standby by detecting voice wakewords in standby mode.
 
 :::info STT Language and Wakeword Registration Strategy
 The language passed to `play()` or `sendChangeLanguage()` is also set as the STT recognition language. Wakewords must be registered as **words that the current STT language can recognize**.
 
-For example, in Korean mode (`ko_kr`), Korean pronunciation wakewords like `"니혼고"`, `"잉글리쉬"` are recognized. When switched to Japanese mode (`ja_jp`), Japanese wakewords like `"韓国語"`, `"英語"` are recognized.
+For example, in Korean mode (`ko_kr`), Korean pronunciation wakewords like `"니혼고"`, `"잉글리쉬"` are recognized, and when switched to Japanese mode (`ja_jp`), Japanese wakewords like `"韓国語"`, `"英語"` are recognized.
 
-Therefore, it's best to **register wakewords for all supported languages at once**.
+Therefore, it is recommended to **register wakewords for all supported languages at once**.
 :::
 
 :::caution Standby Mode Required
-Wakeword matching is disabled by default and is automatically enabled when entering `enterStandby()`. You must set up automatic standby with `setIdleTimeout()` or manually call `enterStandby()` for wakeword matching to work.
+Wakeword matching is disabled by default and is automatically activated upon `enterStandby()` entry. You must set up automatic standby with `setIdleTimeout()` or manually call `enterStandby()` for wakeword matching to work.
 :::
 
 ```kotlin
@@ -491,17 +491,17 @@ fun WakewordLanguageSwitcher(klleonOndeviceSdk: KlleonOndeviceSdk) {
             "Japanese" to "ja_jp",
         ))
 
-        // Enable auto standby — wakeword matching also auto-enabled on standby entry
+        // Enable automatic standby — wakeword matching is also auto-activated on standby entry
         klleonOndeviceSdk.setIdleTimeout(60_000L)
     }
 
-    // Switch language + exit standby on wakeword detection
+    // Switch language + exit standby when wakeword is detected
     LaunchedEffect(Unit) {
         klleonOndeviceSdk.wakewordDetected.collect { result ->
             klleonOndeviceSdk.sendChangeLanguage(result.tag)
             currentLanguage = result.tag
             if (klleonOndeviceSdk.isStandby()) {
-                klleonOndeviceSdk.exitStandby()  // Matching also auto-disabled
+                klleonOndeviceSdk.exitStandby()  // Matching is also automatically disabled
             }
         }
     }
