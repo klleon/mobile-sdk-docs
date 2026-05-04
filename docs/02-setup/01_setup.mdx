@@ -12,15 +12,15 @@ sidebar_label: setup
 - **타겟 SDK**: 36
 - **지원 ABI**: arm64-v8a, armeabi-v7a
 
-### 스펙 요구사항
+### 권장 스펙
 
-| 항목 | 최소 스펙 | 비고 |
+| 항목 | 권장 스펙 | 비고 |
 |------|----------|------|
 | Android | API 26 (8.0) 이상 | |
-| CPU | ARM 64bit (ARMv8) | 4코어 이상 |
-| RAM | 4GB 이상 | |
+| CPU | ARM 64bit (ARMv8) | 8코어 이상 |
+| RAM | 6GB 이상 | |
 | GPU | OpenCL 1.2 + `cl_khr_fp16` | GPU 추론 필수 |
-| GPU 성능 | FP32 ~200 GFLOPS 이상 | 기준: Galaxy S9 (Mali-G72 MP18, ~247 GFLOPS) |
+| GPU 성능 | FP32 ~300 GFLOPS 이상 | 기준: Galaxy Tab S9 FE+ (Mali-G68 MP5, ~300 GFLOPS) |
 
 :::warning 사전검증 필요
 카탈로그 스펙만으로는 SDK 동작을 보장할 수 없습니다.
@@ -31,13 +31,13 @@ sidebar_label: setup
 - **발열 쓰로틀링**: 장시간 동작 시 발열로 인해 CPU/GPU 클럭이 낮아져 성능이 저하됩니다.
 - **배포 후 문제 발견 시 비용이 큼**: 키오스크/TV 등 대량 배포 환경에서 문제 발생 시 현장 대응 비용이 발생합니다. 5분 벤치마크로 사전에 확인하면 이 리스크를 제거할 수 있습니다.
 
-**신규 디바이스 도입 전 벤치마크 앱으로 사전검증을 권장합니다.**
+**신규 디바이스 도입 전 벤치마크 앱으로 사전검증이 필요합니다.**
 
 | 항목 | 합격 기준 |
 |------|----------|
 | OpenCL 지원 | OpenCL 1.2+ & `cl_khr_fp16` |
 | TFLite GPU 추론 | 초기화 성공 |
-| 추론 시간 | &lt;60ms (전처리/후처리 제외) |
+| 추론 시간 | &lt;50ms (전처리/후처리 제외) |
 | FPS (발화 시) | 24fps 이상 유지 |
 | 5분 연속 동작 | 메모리 안정, 발열 &lt;45°C |
 :::
@@ -99,7 +99,7 @@ android {
 ```kotlin
 dependencies {
     // SDK
-    implementation("io.klleon:ondevice-sdk:0.5.0")
+    implementation("io.klleon:ondevice-sdk:0.6.0")
 
     // Coroutines (SDK 필수)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")

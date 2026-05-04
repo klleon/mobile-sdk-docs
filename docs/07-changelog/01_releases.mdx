@@ -11,7 +11,31 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ---
 
-## v0.5.0 (Latest)
+## v0.6.0 (Latest)
+
+**릴리스일**: 2026년 5월
+
+### 새로운 기능
+- **Dual YUV face crops 런타임 적용** (LIPSYNC-007): `ResourceManager.init()`에 `faceCropYuvFileName`, `faceCropYuvMetaFileName` 파라미터 추가 (둘 다 default `""` — backward-compat). 사전 추출된 face crop YUV가 있으면 `warpAffine` 스킵하여 추론 경로 단축.
+- `ResourceManager` public properties 추가: `faceCropYuvBuffer`, `faceCropYuvPath`, `faceCropYuvMetaPath`
+
+### 변경사항
+- `VideoDecoder.decodeVideo` 콜백 시그니처 확장: `(rgba, faceFrame, frame, total)` (이전 `(rgba, frame, total)`) — 내부 변경, 공개 API 영향 없음
+- 립싱크 캘리브레이션 도구 (`tools/lipsync_quality/`) 정비
+
+---
+
+## v0.5.1
+
+**릴리스일**: 2026년 4월
+
+### 변경사항
+- 립싱크 품질 개선 (yuna/sony 아바타 캘리브레이션)
+- (sdk-docs 동기화 누락 — v0.6.0에 포함하여 정리)
+
+---
+
+## v0.5.0
 
 **릴리스일**: 2026년 4월
 
@@ -306,7 +330,8 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 | 버전 | 상태 | 비고 |
 |------|------|------|
-| 0.5.x | 활성 지원 | 최신 |
+| 0.6.x | 활성 지원 | 최신 |
+| 0.5.x | 활성 지원 | |
 | 0.4.x | 활성 지원 | |
 | 0.3.x | 활성 지원 | |
 | 0.2.x | 유지 보수 | |
