@@ -17,46 +17,36 @@ Changes in the Klleon Ondevice SDK by version.
 
 ### Breaking Changes
 
-- **The `scope` parameter was removed from `chat()`.** The server dropped it from the contract —
-  the index is selected from the authenticated tenant, so the value was never used.
+- **Removed the `scope` parameter from `chat()`.** The server dropped it from the contract (the index is selected from the authenticated tenant).
 
   :::danger Positional calls compile fine and fail silently
   ```kotlin
   sdk.chat(ctx, text, "sony_booth", "ko")   // 0.12.x — compiles. "sony_booth" now binds to lang
   sdk.chat(ctx, text, lang = "ko")          // 0.13.0
   ```
-  Only code that passed it as a named argument (`scope = ...`) fails to compile. **Audit every**
-  `chat(` call site when upgrading.
+  Only code that passed it as a named argument (`scope = ...`) fails to compile. **Audit every** `chat(` call site.
   :::
 
-- **`ChatBlock.Text` gained a `speech: CachedSpeechRef?` field.** Source compatible, but the
-  `copy`/`componentN` signatures changed, making it **binary incompatible** — recompile required.
+- **`ChatBlock.Text` gained `speech: CachedSpeechRef?`** — source compatible but **binary incompatible** (recompile required).
 
 ### New Features
 
-- **Cached speech** — plays a recording the server synthesized in advance, so there is no TTS
-  round trip (measured: 0.7 s from STT to speech on a cache hit, versus 2.1–3.0 s via TTS).
-  - `speakAnswer(context, block)` — **three-stage fallback**: cached PCM → TTS → notice audio.
-    It exists to prevent the user speaking and hearing nothing back
-  - `syncCachedSpeech()` · `hasCachedSpeech()` · `importCachedSpeech()` ·
-    `cachedSpeechCount()` · `speakCachedFile()` — cache store
-  - `ChatBlock.Text.speech` — a **lookup key** telling you the server holds a recording for this answer
-- `setChatBaseUrl(url)` — switches the chat and asset server (for local server verification)
+- **Cached speech** — plays a recording the server synthesized in advance, removing the TTS round trip (measured: 0.7 s from STT to speech, versus 2.1–3.0 s via TTS).
+  - `speakAnswer()` — cached PCM → TTS → notice audio, a **three-stage fallback** that prevents silence
+  - `syncCachedSpeech()` · `hasCachedSpeech()` · `importCachedSpeech()` · `cachedSpeechCount()` · `speakCachedFile()` — cache store
+  - `ChatBlock.Text.speech` — a **lookup key** telling you whether the server holds a recording
+- `setChatBaseUrl(url)` — switches the chat and asset server (local verification)
 
 ### Behavior Changes
 
-- `ResourceManager.init()` now synchronizes cached audio with the server automatically. The
-  signature is unchanged. If the server holds no assets, the sync ends with zero downloads and
-  speech falls back to the existing TTS.
+- `ResourceManager.init()` now synchronizes cached audio automatically (signature unchanged). If the server holds no assets, the sync ends with zero downloads and speech falls back to the existing TTS.
 
 ### Bug Fixes
 
-- Attestation could fail **permanently** on a reinstalled device because of a dead keystore key.
-  If `Cipher.init` fails, the alias is now deleted and regenerated once
-- An empty manifest caused the entire local cache to be marked for deletion (guard added)
-- Input arriving while the avatar was preparing to speak could start a second turn, making the
-  avatar speak two answers back to back
-- Cached speech sat outside the avatar response cycle, breaking the `TTS_START`/`TTS_END` pairing
+- Attestation could fail **permanently** on a reinstalled device because of a dead keystore key (the alias is now regenerated)
+- An empty manifest marked the entire local cache for deletion (guard added)
+- Input during the pre-speech window started a second turn, so answers were spoken back to back
+- Cached speech sat outside the response cycle, breaking the `TTS_START`/`TTS_END` pairing
 
 ---
 
@@ -65,23 +55,11 @@ Changes in the Klleon Ondevice SDK by version.
 **Release date**: August 2026
 
 ### Bug Fixes
-- **`setIdleTimeout()` stopped working permanently when the server never responded after a send.**
-  `sendMessage()`/`sendMessageEcho()` only stopped the idle timer and relied on server events to
-  restart it, so if the server returned nothing, `STANDBY_ENTER` never fired for that session.
-  Sending now switches to a response watchdog, so it converges within `timeoutMs` even with no
-  response. The watchdog occupies the leading portion of the `timeoutMs` budget (up to 20 s), so
-  the total wait does not increase.
-- Added `RATE_LIMIT`, `WSS_FAILURE`, and `WSS_RETRY_OVER` to the idle-timer restart triggers.
-  `RATE_LIMIT` in particular is a case where the server responds instead of `PREPARING_RESPONSE`,
-  so the recovery signal was missing at exactly the moment the timer was stopped.
-
-### Internal Changes
-- Extracted the idle-timer restart trigger list into a single source. The progress signals and
-  the termination signals had diverged into two copies, causing the triggers to drift.
+- **`setIdleTimeout()` stopped working permanently when the server never responded after a send.** Timer restart relied solely on server events, so with no response `STANDBY_ENTER` never fired. It now uses a response watchdog (up to 20 s within the budget), converging within `timeoutMs` without increasing the total wait.
+- Added `RATE_LIMIT`, `WSS_FAILURE`, and `WSS_RETRY_OVER` to the timer restart triggers.
 
 ### Compatibility
-No public API signature changes. Only apps using `setIdleTimeout()` see a behavior difference —
-previously the standby screen was not entered when the server did not respond; now it is.
+No public API changes. Only apps using `setIdleTimeout()` behave differently — standby is now entered when the server does not respond.
 
 ---
 
@@ -90,23 +68,21 @@ previously the standby screen was not entered when the server did not respond; n
 **Release date**: August 2026
 
 ### New Features
-- Added the `useMelSpectrogram: Boolean = false` parameter to `play()` — a mode switch that moves to the MEL-spectrogram-based lip-sync pipeline. `false` (the default) keeps the existing AUDIO_FEATURE path.
-- Added the cached speech API: `speakCachedAsset(assetName: String): Result<Int>`, `speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>`, `isCachedSpeechReady(): Boolean`. Plays pre-prepared PCM (16 kHz mono int16 LE) instantly without a server round trip. Works only in a `play(useMelSpectrogram = true)` session.
-- Added `RuntimeConfig.audioNonStreaming` — plays the speech audio at once after receiving all of it (default `true`). Dropouts caused by mid-speech buffer underruns disappear, at the cost of a longer delay before the first sound. Set it to `false` for the previous streaming playback.
-- Server PCM→MEL live speech: consumes the PCM sent by the server as a single ordered stream and blocks leftover events from a previous session on reconnect via connection-generation (cid) guards.
-- Unified session instrumentation: network and device state are recorded in New Relic through the single `SESSION_VITALS` event (line-speed measurement every 3 minutes, capped at 1.5 MB).
+- Added `useMelSpectrogram: Boolean = false` to `play()` — a switch to the MEL-based lip-sync pipeline. `false` (the default) keeps the existing path.
+- Cached speech API: `speakCachedAsset()` · `speakCachedPcm16Le()` · `isCachedSpeechReady()`. Plays pre-prepared PCM (16 kHz mono int16 LE) without a server round trip, only in a `play(useMelSpectrogram = true)` session.
+- `RuntimeConfig.audioNonStreaming` — buffers the whole utterance, then plays it at once (default `true`). Dropouts disappear at the cost of a longer delay before the first sound.
+- Server PCM→MEL live speech, and unified session instrumentation (`SESSION_VITALS`).
 
 ### Behavior Changes
-- **Audio playback is now non-streaming by default.** The playback behavior changes simply by upgrading, with no API change. If you need the previous behavior, set `RuntimeConfig.audioNonStreaming = false`.
-- Adding a default parameter to `play()` is **source-compatible but binary-incompatible**. Consumer apps must be recompiled (which happens automatically when the Gradle dependency is updated).
+- **Audio playback is non-streaming by default.** Playback changes on upgrade with no API change — set `RuntimeConfig.audioNonStreaming = false` for the previous behavior.
+- Adding a default parameter to `play()` is **binary incompatible**, so a recompile is required.
 
 ### Bug Fixes
-- Blocked the race between interrupting speech (`sendStopSpeech`) and starting a new one — introduced a stop epoch, blocked audio re-queuing after interruption, and corrected the cleanup order.
-- Double defense against stale messages and callbacks from a previous socket polluting the new session state on WebSocket reconnect. The connection-closed signal (Disconnected) is always delivered even when it arrives late.
-- Fixed an issue where, after a disconnect and recovery during speech, the first utterance proceeded without `reset()`/`TTS_START` and mixed with leftover audio from the previous utterance.
+- Blocked the race between interrupting speech and starting a new one (stop epoch).
+- Double defense against stale messages and callbacks from a previous socket polluting the new session on WebSocket reconnect.
+- After recovering from a disconnect mid-speech, the first utterance proceeded without `reset()`/`TTS_START` and mixed with leftover audio.
 
 ---
-
 ## v0.11.2
 
 **Release date**: July 2026

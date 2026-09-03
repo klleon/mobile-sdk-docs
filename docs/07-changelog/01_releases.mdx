@@ -17,44 +17,36 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ### Breaking Changes
 
-- **`chat()` 에서 `scope` 파라미터가 제거되었습니다.** 서버가 계약에서 없앴습니다 — 인덱스는
-  인증 컨텍스트의 tenant 로만 선택되므로 이 값은 쓰이지 않았습니다.
+- **`chat()` 의 `scope` 파라미터 제거.** 서버가 계약에서 없앴습니다(인덱스는 인증 tenant 로만 선택).
 
   :::danger positional 호출은 컴파일을 통과하고 조용히 오동작합니다
   ```kotlin
   sdk.chat(ctx, text, "sony_booth", "ko")   // 0.12.x — 컴파일 OK. "sony_booth" 가 lang 에 바인딩됩니다
   sdk.chat(ctx, text, lang = "ko")          // 0.13.0
   ```
-  named argument(`scope = ...`)로 호출한 코드만 컴파일 에러가 납니다. 업그레이드 시
-  `chat(` 호출부를 **전수 확인**하세요.
+  named argument(`scope = ...`)로 호출한 코드만 에러가 납니다. `chat(` 호출부를 **전수 확인**하세요.
   :::
 
-- **`ChatBlock.Text` 에 `speech: CachedSpeechRef?` 필드가 추가되었습니다.** 소스 호환이지만
-  `copy`/`componentN` 시그니처가 바뀌어 **바이너리 비호환**입니다 — 재컴파일이 필요합니다.
+- **`ChatBlock.Text` 에 `speech: CachedSpeechRef?` 추가** — 소스 호환이나 **바이너리 비호환**(재컴파일 필요).
 
 ### 새로운 기능
 
-- **캐시 발화** — 서버가 미리 합성해 둔 녹음을 단말에서 재생합니다. TTS 왕복이 없어 응답이
-  빠릅니다(실측: 캐시 적중 시 STT→발화 0.7초 vs TTS 2.1~3.0초).
-  - `speakAnswer(context, block)` — 캐시 PCM → TTS → 안내 음성 **3단 폴백**. 사용자가 말을
-    걸었는데 아무 소리도 안 나는 상황을 막습니다
-  - `syncCachedSpeech()` · `hasCachedSpeech()` · `importCachedSpeech()` ·
-    `cachedSpeechCount()` · `speakCachedFile()` — 캐시 스토어
-  - `ChatBlock.Text.speech` — 서버가 이 답변의 녹음을 갖고 있는지 알려주는 **조회 키**
-- `setChatBaseUrl(url)` — chat·자산 서버 교체 (로컬 서버 검증용)
+- **캐시 발화** — 서버가 미리 합성한 녹음을 재생해 TTS 왕복을 없앱니다(실측 STT→발화 0.7초 vs TTS 2.1~3.0초).
+  - `speakAnswer()` — 캐시 PCM → TTS → 안내 음성 **3단 폴백**(침묵 방지)
+  - `syncCachedSpeech()` · `hasCachedSpeech()` · `importCachedSpeech()` · `cachedSpeechCount()` · `speakCachedFile()` — 캐시 스토어
+  - `ChatBlock.Text.speech` — 서버 보유 여부를 알려주는 **조회 키**
+- `setChatBaseUrl(url)` — chat·자산 서버 교체(로컬 검증용)
 
 ### 동작 변경
 
-- `ResourceManager.init()` 이 캐시 음성 서버 동기화를 자동으로 겁니다. 시그니처는 그대로입니다.
-  서버에 자산이 없으면 동기화가 0건으로 끝나고 발화는 기존 TTS 로 폴백합니다.
+- `ResourceManager.init()` 이 캐시 음성 동기화를 자동 수행(시그니처 불변). 서버에 자산이 없으면 0건으로 끝나고 기존 TTS 로 폴백합니다.
 
 ### 버그 수정
 
-- 재설치한 기기에서 죽은 keystore 키 때문에 attestation 이 **영구 실패**하던 문제.
-  `Cipher.init` 이 실패하면 alias 를 지우고 1회 재생성합니다
-- 빈 manifest 를 받으면 보유 캐시 전량을 삭제 대상으로 계산하던 문제 (가드 추가)
-- 아바타 발화 대기 구간에 들어온 입력이 두 번째 턴을 시작해 답변 두 개가 연달아 발화되던 문제
-- 캐시 발화가 아바타 응답 사이클 밖에 있어 `TTS_START`/`TTS_END` 짝이 깨지던 문제
+- 재설치 기기에서 죽은 keystore 키로 attestation 이 **영구 실패**하던 문제(alias 재생성)
+- 빈 manifest 수신 시 보유 캐시 전량이 삭제 대상이 되던 문제(가드 추가)
+- 발화 대기 구간의 입력이 두 번째 턴을 시작해 답변이 연달아 발화되던 문제
+- 캐시 발화가 응답 사이클 밖이라 `TTS_START`/`TTS_END` 짝이 깨지던 문제
 
 ---
 
@@ -63,14 +55,11 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 **릴리스일**: 2026년 8월
 
 ### 버그 수정
-- **`setIdleTimeout()` 이 전송 후 서버 무응답 시 영구히 동작하지 않던 문제**. `sendMessage()`/`sendMessageEcho()` 가 idle 타이머를 중지시키기만 하고 재시작을 서버 이벤트에만 의존해, 서버가 아무 응답도 주지 않으면 해당 세션에서 `STANDBY_ENTER` 가 발생하지 않았다. 전송 시 응답 watchdog으로 전환해 무응답이어도 `timeoutMs` 안에 수렴한다. watchdog은 `timeoutMs` 예산 안의 앞구간(최대 20초)이라 총 대기가 늘어나지 않는다.
-- idle 타이머 재시작 트리거에 `RATE_LIMIT`, `WSS_FAILURE`, `WSS_RETRY_OVER` 추가. 특히 `RATE_LIMIT` 은 서버가 `PREPARING_RESPONSE` 대신 응답하는 케이스라, 타이머가 중지된 시점에 복구 신호가 누락되고 있었다.
-
-### 내부 변경
-- idle 타이머 재시작 트리거 목록을 단일 소스로 분리. 진행 신호와 종료 신호가 두 벌로 갈라져 있어 트리거가 드리프트하던 구조를 제거했다.
+- **전송 후 서버 무응답 시 `setIdleTimeout()` 이 영구히 동작하지 않던 문제.** 타이머 재시작을 서버 이벤트에만 의존해 무응답이면 `STANDBY_ENTER` 가 발생하지 않았습니다. 응답 watchdog(예산 내 최대 20초)으로 전환해 총 대기 증가 없이 `timeoutMs` 안에 수렴합니다.
+- 타이머 재시작 트리거에 `RATE_LIMIT` · `WSS_FAILURE` · `WSS_RETRY_OVER` 추가.
 
 ### 호환성
-공개 API 시그니처 변경 없음. `setIdleTimeout()` 을 사용하는 앱만 동작이 달라진다 — 서버 무응답 상황에서 이전에는 대기화면으로 전환되지 않았고, 이제는 전환된다.
+공개 API 변경 없음. `setIdleTimeout()` 사용 앱만 동작이 달라집니다 — 서버 무응답 시 이제 대기화면으로 전환됩니다.
 
 ---
 
@@ -79,20 +68,19 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 **릴리스일**: 2026년 8월
 
 ### 새로운 기능
-- `play()`에 `useMelSpectrogram: Boolean = false` 파라미터 추가 — MEL 스펙트로그램 기반 립싱크 파이프라인으로 전환하는 모드 스위치. `false`(기본)는 기존 AUDIO_FEATURE 경로 그대로.
-- 캐시 발화 API 추가: `speakCachedAsset(assetName: String): Result<Int>`, `speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>`, `isCachedSpeechReady(): Boolean`. 미리 준비한 PCM(16kHz mono int16 LE)을 서버 왕복 없이 즉시 발화한다. `play(useMelSpectrogram = true)` 세션에서만 동작.
-- `RuntimeConfig.audioNonStreaming` 추가 — 발화 오디오를 끝까지 받은 뒤 한 번에 재생(기본 `true`). 중간 버퍼 언더런으로 인한 끊김이 사라지는 대신 첫 소리 지연이 늘어난다. `false`로 두면 기존 스트리밍 재생.
-- 서버 PCM→MEL 라이브 발화: 서버가 보낸 PCM을 단일 ordered 스트림으로 소비하고, 연결 세대(cid) 기반 가드로 재연결 시 이전 세션 잔여 이벤트를 차단.
-- 세션 계측 통합: `SESSION_VITALS` 단일 이벤트로 네트워크·디바이스 상태를 New Relic에 적재(회선 속도 측정 3분 주기, 1.5MB cap).
+- `play()` 에 `useMelSpectrogram: Boolean = false` 추가 — MEL 기반 립싱크 파이프라인 전환 스위치. `false`(기본)는 기존 경로 그대로.
+- 캐시 발화 API: `speakCachedAsset()` · `speakCachedPcm16Le()` · `isCachedSpeechReady()`. 미리 준비한 PCM(16kHz mono int16 LE)을 서버 왕복 없이 발화하며, `play(useMelSpectrogram = true)` 세션에서만 동작합니다.
+- `RuntimeConfig.audioNonStreaming` — 발화 오디오를 끝까지 받은 뒤 일괄 재생(기본 `true`). 중간 끊김이 사라지는 대신 첫 소리 지연이 늘어납니다.
+- 서버 PCM→MEL 라이브 발화, 세션 계측 통합(`SESSION_VITALS`).
 
 ### 동작 변경
-- **오디오 재생이 논스트리밍 기본**입니다. API 변경 없이 업그레이드만으로 재생 방식이 바뀝니다. 이전 동작이 필요하면 `RuntimeConfig.audioNonStreaming = false`.
-- `play()`의 default 파라미터 추가는 **소스 호환이지만 바이너리 비호환**입니다. 소비자 앱 재컴파일이 필요합니다(Gradle 의존성 갱신 시 자동).
+- **오디오 재생이 논스트리밍 기본입니다.** API 변경 없이 업그레이드만으로 재생 방식이 바뀝니다 — 이전 동작은 `RuntimeConfig.audioNonStreaming = false`.
+- `play()` 의 default 파라미터 추가는 **바이너리 비호환**이라 재컴파일이 필요합니다.
 
 ### 버그 수정
-- 발화 중단(`sendStopSpeech`)과 새 발화 시작이 겹칠 때의 경합 차단 — stop epoch 도입, 중단 후 오디오 재적재 차단, 정리 순서 교정.
-- WebSocket 재연결 시 이전 소켓의 stale 메시지·콜백이 새 세션 상태를 오염시키던 문제 이중 방어. 연결 종료 신호(Disconnected)는 지연 도착해도 반드시 전달.
-- 발화 도중 연결이 끊겼다 복구되면 첫 발화가 `reset()`/`TTS_START` 없이 진행돼 이전 발화 잔여 오디오와 섞이던 문제 수정.
+- 발화 중단과 새 발화 시작이 겹칠 때의 경합 차단(stop epoch).
+- WebSocket 재연결 시 이전 소켓의 stale 메시지·콜백이 새 세션을 오염시키던 문제 이중 방어.
+- 발화 중 끊김 복구 후 첫 발화가 `reset()`/`TTS_START` 없이 진행돼 잔여 오디오와 섞이던 문제.
 
 ---
 
