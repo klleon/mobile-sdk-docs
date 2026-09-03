@@ -5,6 +5,70 @@ title: 개발 가이드
 sidebar_label: guides
 ---
 
+## v0.6.0 → v0.8.0 마이그레이션
+
+> 본 릴리스에 Breaking 변경이 포함되어 있습니다. 아래 단계를 따라 마이그레이션하세요.
+
+### 변경 요약
+- `voiceRecognitionMode` 기본값 `DISCRETE` → `ALWAYS_ON` (`play()` 직후 마이크 자동 시작)
+- `play()` 의 `sttMode` 기본값 `AUTO_SEND_TO_SERVER` → `STT_ONLY` (STT 결과의 서버 자동 전송 X)
+- `startVoiceRecognition()` `@Deprecated` — `startAlwaysOnListening()` 권장
+- `SttMode.AUTO_SEND_TO_SERVER` `@Deprecated` — `STT_ONLY` 권장
+- `sttProvider` 빌드 기본값 `agora` → `azure`
+
+### 마이그레이션 시나리오
+
+#### 시나리오 A — 이전 동작 그대로 유지 (가장 빠른 호환 경로)
+
+```kotlin
+// play() 호출 전
+sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE
+
+// play() 호출 시 sttMode 명시
+@Suppress("DEPRECATION")
+sdk.play(
+    context, view, sdkKey, avatarId, language,
+    sttMode = SttMode.AUTO_SEND_TO_SERVER,
+)
+
+// 마이크는 사용자 액션으로 시작 (Deprecated 경고 발생)
+@Suppress("DEPRECATION")
+sdk.startVoiceRecognition()
+```
+
+→ Deprecated 경고가 발생하지만 동작은 v0.6.0 과 동일. v0.9.0+ 에서 제거 예정이므로 점진적 마이그레이션 권장.
+
+#### 시나리오 B — ALWAYS_ON + STT_ONLY 로 전환 (권장)
+
+1. `voiceRecognitionMode` / `sttMode` 인자 명시 제거 (기본값 사용)
+2. 마이크 시작/정지 호출 (`startVoiceRecognition` / `stopVoiceRecognition`) 제거 — `play()` 후 자동 시작, 종료까지 세션 유지
+3. `sdkState` 의 `STT_RESULT` chat_type 수신 → 앱 로직에서 후처리 → `sdk.sendMessage(text)` 명시 호출
+
+```kotlin
+// ViewModel
+viewModelScope.launch {
+    sdk.sdkState.collect { json ->
+        val chatType = JSONObject(json).optString("chat_type")
+        val message = JSONObject(json).optString("message")
+        if (chatType == "STT_RESULT" && message.isNotBlank()) {
+            // 필터/검수 후 명시 전송
+            sdk.sendMessage(message)
+        }
+    }
+}
+```
+
+#### 시나리오 C — DISCRETE 유지하면서 서버 자동 전송만 끄기
+
+```kotlin
+sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE
+sdk.play(context, view, sdkKey, avatarId, language)  // sttMode 생략 → STT_ONLY
+@Suppress("DEPRECATION")
+sdk.startVoiceRecognition()  // 사용자 PTT 동작
+```
+
+---
+
 ### 1. 권한 관리
 - SDK 초기화 전에 항상 권한을 확인하세요
 - 사용자 친화적인 메시지로 권한 거부를 처리하세요
@@ -114,31 +178,48 @@ fun safeOperation() {
 
 ### 6. 음성 인식 통합
 
-버튼 탭 시 음성 인식을 시작하고, 무음 감지 시 자동 종료됩니다.
+v0.8.0 부터 ALWAYS_ON + STT_ONLY 가 기본 흐름입니다. `play()` 후 마이크 세션이 자동 시작되므로, 앱은 `sdkState` 의 STT 이벤트만 수신·처리하면 됩니다.
 
 ```kotlin
-// 음성 인식 시작
-val success = klleonOndeviceSdk.startVoiceRecognition()
-
 // 결과는 sdkState Flow로 수신
 klleonOndeviceSdk.sdkState.collect { state ->
     val json = JSONObject(state)
     when (json.optString("chat_type")) {
         "STT_RESULT" -> {
-            // 음성 인식 최종 결과
-            val text = json.getString("message")
+            // 음성 인식 최종 결과 — STT_ONLY 흐름에서는 앱이 sendMessage() 명시 호출
+            val text = json.optString("message")
+            if (text.isNotBlank()) {
+                // 필터/검수 등 후처리 후 전송
+                klleonOndeviceSdk.sendMessage(text)
+            }
         }
         "STT_PARTIAL" -> {
             // 중간 결과 (실시간 표시용)
-            val partialText = json.getString("message")
+            val partialText = json.optString("message")
         }
         "STT_STATUS" -> {
-            // 음성 인식 상태 변화 (준비 중/재연결 중/준비 완료)
-            val statusMessage = json.getString("message")
+            val statusMessage = json.optString("message")
             showToast(statusMessage)
+        }
+        "STT_AUTH_ERROR" -> {
+            // v0.7.0+ — STT 토큰 V2 attestation 인증 실패
+            showError("STT 인증 실패: " + json.optString("message"))
         }
     }
 }
+```
+
+#### Legacy: DISCRETE (Push-to-talk) 흐름
+
+⚠️ Deprecated (v0.8.0+, v0.9.0+ 제거 예정). 새 코드에서는 ALWAYS_ON 사용 권장.
+
+```kotlin
+// play() 호출 전
+sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE
+
+// 버튼 클릭 시
+@Suppress("DEPRECATION")
+sdk.startVoiceRecognition()
 ```
 
 ### 7. 발화 중단
@@ -148,6 +229,47 @@ klleonOndeviceSdk.sdkState.collect { state ->
 ```kotlin
 klleonOndeviceSdk.sendStopSpeech()
 ```
+
+### 7-1. 캐시 발화 (v0.12.0+)
+
+인사말·안내 문구처럼 **고정된 대사**는 미리 준비한 PCM으로 발화해 서버 왕복 지연을 없앨 수 있습니다.
+
+```kotlin
+CoroutineScope(Dispatchers.IO).launch {
+    // 전제: MEL 모드로 기동해야 캐시 발화가 활성화된다
+    klleonOndeviceSdk.play(
+        context = this@Activity,
+        klleonSdkViewInstance = sdkView,
+        sdkKey = "YOUR_SDK_KEY",
+        avatarId = "character_001",
+        language = "ko_kr",
+        useMelSpectrogram = true,
+    )
+
+    if (klleonOndeviceSdk.isCachedSpeechReady()) {
+        klleonOndeviceSdk.speakCachedAsset("greeting_ko.pcm")
+            .onFailure { Log.w(TAG, "캐시 발화 실패: ${it.message}") }
+    }
+}
+```
+
+- 오디오 포맷은 **16kHz mono int16 little-endian PCM** 고정입니다.
+- `play(useMelSpectrogram = false)` 세션에서 호출하면 `Result.failure(IllegalStateException)` 을 반환합니다 — `isCachedSpeechReady()` 로 먼저 확인하세요.
+- 캐시 발화 중 `sendStopSpeech()` 를 호출하면 서버 발화와 동일하게 즉시 중단됩니다.
+
+### 7-2. 오디오 재생 모드 (v0.12.0+)
+
+```kotlin
+RuntimeConfig.audioNonStreaming = true   // 기본값 — 발화를 완충 후 일괄 재생
+RuntimeConfig.audioNonStreaming = false  // 스트리밍 — 도착하는 대로 재생
+```
+
+| 모드 | 첫 소리 지연 | 중간 끊김 | 권장 상황 |
+|------|------------|----------|----------|
+| 논스트리밍(기본) | 길다 | 없음 | 일반 환경, 열악한 회선 |
+| 스트리밍 | 짧다 | 느린 망에서 발생 가능 | 저지연이 중요한 안정적 회선 |
+
+값은 발화 시작 시점에 캡처되어 그 발화가 끝날 때까지 고정됩니다.
 
 ### 8. Android TV 대응
 

@@ -139,13 +139,17 @@ resourceManager.deinit()
 
 AI 아바타 비디오 재생을 시작합니다. `suspend` 함수이므로 코루틴 내에서 호출해야 합니다.
 
+v0.7.0+ `sttMode` 파라미터 추가, v0.8.0+ 기본값 `STT_ONLY`, v0.12.0+ `useMelSpectrogram` 파라미터 추가.
+
 ```kotlin
 suspend fun play(
     context: Context,
     klleonSdkViewInstance: KlleonSdkView?,
     sdkKey: String,
     avatarId: String,
-    language: String
+    language: String,
+    sttMode: SttMode = SttMode.STT_ONLY,
+    useMelSpectrogram: Boolean = false,
 )
 ```
 
@@ -157,6 +161,10 @@ suspend fun play(
 | `sdkKey` | String | O | SDK 인증 키 |
 | `avatarId` | String | O | AI 아바타 ID |
 | `language` | String | O | 언어 코드 (`ko_kr`, `en_us`, `ja_jp`) |
+| `sttMode` | [SttMode](#sttmode) | X | STT 결과 전달 모드 (기본값 `STT_ONLY` — 앱이 결과 수신 후 `sendMessage()` 명시 호출) |
+| `useMelSpectrogram` | Boolean | X | 립싱크 파이프라인 모드 (v0.12.0+, 기본값 `false`). `true`면 MEL 스펙트로그램 경로로 기동하며 [캐시 발화 API](#캐시-발화-api)를 사용할 수 있습니다 |
+
+`voiceRecognitionMode` 가 `ALWAYS_ON` (v0.8.0+ 기본값) 인 경우 `play()` 후 마이크 세션이 자동 시작됩니다. 별도 `startAlwaysOnListening()` 호출 불필요.
 
 **예제:**
 ```kotlin
@@ -167,7 +175,8 @@ CoroutineScope(Dispatchers.IO).launch {
             klleonSdkViewInstance = view,
             sdkKey = "YOUR_SDK_KEY",
             avatarId = "character_001",
-            language = "ko_kr"
+            language = "ko_kr",
+            // sttMode = SttMode.STT_ONLY,  // v0.8.0+ 기본값 (생략 가능)
         )
     }
 }
@@ -252,6 +261,86 @@ klleonOndeviceSdk.sendChangeLanguage("en")
 ```kotlin
 klleonOndeviceSdk.sendStopSpeech()
 ```
+
+---
+
+## 캐시 발화 API
+
+v0.12.0+. 미리 준비한 PCM 오디오를 서버 왕복 없이 즉시 발화합니다. 인사말·안내 문구처럼 고정된 대사에서 응답 지연을 없앨 때 사용합니다.
+
+**전제**: `play(useMelSpectrogram = true)` 로 기동한 세션에서만 동작합니다. 그 외 세션에서 호출하면 `Result.failure(IllegalStateException)` 을 반환합니다.
+
+### speakCachedAsset()
+
+앱 assets의 PCM 파일을 발화합니다.
+
+```kotlin
+suspend fun speakCachedAsset(assetName: String): Result<Int>
+```
+
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `assetName` | String | O | assets 내 PCM 파일명 (16kHz mono int16 LE) |
+
+반환값은 발화에 사용된 샘플 수입니다. 실패 시 `Result.failure`.
+
+### speakCachedPcm16Le()
+
+메모리상의 PCM 바이트를 발화합니다.
+
+```kotlin
+suspend fun speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>
+```
+
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `pcmBytes` | ByteArray | O | 16kHz mono int16 little-endian PCM (캐시 계약상 16kHz 고정) |
+
+### isCachedSpeechReady()
+
+캐시 발화를 사용할 수 있는 상태인지 확인합니다.
+
+```kotlin
+fun isCachedSpeechReady(): Boolean
+```
+
+**예제:**
+```kotlin
+CoroutineScope(Dispatchers.IO).launch {
+    klleonOndeviceSdk.play(
+        context = this@Activity,
+        klleonSdkViewInstance = view,
+        sdkKey = "YOUR_SDK_KEY",
+        avatarId = "character_001",
+        language = "ko_kr",
+        useMelSpectrogram = true,          // 캐시 발화 전제
+    )
+
+    if (klleonOndeviceSdk.isCachedSpeechReady()) {
+        klleonOndeviceSdk.speakCachedAsset("greeting_ko.pcm")
+            .onFailure { Log.w(TAG, "캐시 발화 실패: ${it.message}") }
+    }
+}
+```
+
+---
+
+## 런타임 설정 (RuntimeConfig)
+
+v0.12.0+. 재생 중에도 바꿀 수 있는 SDK 동작 토글입니다.
+
+### audioNonStreaming
+
+```kotlin
+RuntimeConfig.audioNonStreaming = true   // 기본값
+```
+
+- `true`(기본): **논스트리밍** — 발화 하나의 오디오를 끝까지 받은 뒤 한 번에 재생합니다. 중간 버퍼 언더런으로 인한 끊김이 사라지는 대신 첫 소리까지의 지연이 늘어납니다.
+- `false`: **스트리밍** — 서버 오디오 청크를 도착하는 대로 재생합니다. 저지연이지만 느린 망에서는 언더런으로 발화가 툭툭 끊길 수 있습니다.
+
+값은 **발화 시작 시점에 캡처**되어 그 발화가 끝날 때까지 고정됩니다(발화 도중 토글해도 섞이지 않음).
+
+> v0.12.0부터 기본값이 논스트리밍입니다. 이전 버전의 재생 동작이 필요하면 `false`로 설정하세요.
 
 ---
 
@@ -385,9 +474,31 @@ idle timeout을 비활성화합니다. 활성화된 타이머가 있으면 취�
 klleonOndeviceSdk.disableIdleTimeout()
 ```
 
+### avatarState: StateFlow\<AvatarState\>
+
+v0.10.3 부터 제공. 아바타의 발화 라이프사이클 상태를 타입드 Flow로 노출합니다. 포괄적인 `sdkState` 문자열 스트림에서 발화 상태만 분리한 값입니다.
+
+```kotlin
+enum class AvatarState {
+    IDLE,       // 대기
+    PREPARING,  // 응답 준비중
+    SPEAKING,   // 발화중
+}
+```
+
+```kotlin
+klleonOndeviceSdk.avatarState.collect { state ->
+    when (state) {
+        AvatarState.IDLE -> { /* 대기 UI */ }
+        AvatarState.PREPARING -> { /* 응답 준비중 표시 */ }
+        AvatarState.SPEAKING -> { /* 발화중 표시 */ }
+    }
+}
+```
+
 ### isResponding: StateFlow\<Boolean\>
 
-아바타가 응답 준비 중이거나 발화 중이면 `true`. `PREPARING_RESPONSE` 수신 시 `true`, `TTS_END` 또는 `ERROR` 수신 시 `false`로 전환됩니다.
+아바타가 응답 준비 중이거나 발화 중이면 `true`. v0.10.3 부터 `avatarState != IDLE` 의 파생값입니다(즉 `PREPARING` 또는 `SPEAKING` 일 때 `true`, `IDLE` 일 때 `false`). boolean 동작은 종전과 동일합니다.
 
 ```kotlin
 // 현재 값 확인
@@ -405,66 +516,50 @@ klleonOndeviceSdk.isResponding.collect { responding ->
 
 ## 음성 인식 API
 
-### startVoiceRecognition()
+v0.8.0 부터 `voiceRecognitionMode` 기본값이 `ALWAYS_ON` 이며, `sttMode` 기본값은 `STT_ONLY` 입니다. `play()` 직후 마이크 세션이 자동 시작되고 STT 결과는 `sdkState` 의 `STT_RESULT` chat_type 으로 전달됩니다 — 앱이 후처리 후 `sendMessage()` 를 호출하는 흐름입니다.
 
-음성 인식을 시작합니다. 마이크 녹음을 시작하고 WebSocket으로 START_VOICE 신호를 전송합니다. 무음이 감지되면 자동으로 녹음을 종료하고 END_VOICE 신호를 전송합니다.
+| API | 모드 | 동작 | 활용 |
+|---|---|---|---|
+| `startAlwaysOnListening` ⭐ | `ALWAYS_ON` | VAD/게이팅 없이 세션 유지, 모든 오디오 STT 전송 | 상시 청취, 연속 대화 (권장) |
+| `startVoiceRecognition` ⚠️ Deprecated | `DISCRETE` | VAD 무음 감지 시 자동 종료 (1발화 단위) | Push-to-talk, 단발 명령 — v0.9.0+ 제거 예정 |
 
-```kotlin
-fun startVoiceRecognition(
-    config: SilenceDetectionConfig = SilenceDetectionConfig.default()
-): Boolean
-```
+### SttMode
 
-**매개변수:**
-- `config`: 무음 감지 설정 (선택, 기본값: `SilenceDetectionConfig.default()`)
-
-**반환값:** 성공 여부 (Boolean)
-
-**예제:**
-```kotlin
-// 기본 설정으로 음성 인식 시작
-val success = klleonOndeviceSdk.startVoiceRecognition()
-
-// 커스텀 설정으로 시작
-val customConfig = SilenceDetectionConfig.default().copy(
-    silenceTimeoutMs = 2000L  // 무음 감지 시간 2초
-)
-val success = klleonOndeviceSdk.startVoiceRecognition(customConfig)
-```
-
-### stopVoiceRecognition()
-
-음성 인식을 정지합니다.
+STT 인식 결과 전달 모드 enum (v0.7.0+). `play()` 시점에 설정.
 
 ```kotlin
-klleonOndeviceSdk.stopVoiceRecognition()
+enum class SttMode {
+    /** STT만 사용 (기본값, v0.8.0+) — 결과를 앱 UI 에만 반환. 서버 LLM 전송 X. */
+    STT_ONLY,
+
+    /** STT 결과를 바로 서버로 전송 — 앱 UI + 서버 LLM. */
+    @Deprecated("v0.9.0+ 제거 예정. STT_ONLY + sendMessage() 명시 호출 권장.")
+    AUTO_SEND_TO_SERVER,
+}
 ```
 
-### isVoiceRecognizing()
-
-음성 인식 중인지 확인합니다.
-
-```kotlin
-val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
-```
+활용:
+- **STT_ONLY** (기본): 앱이 `sdkState` 의 `STT_RESULT` chat_type 수신 → 필터링/검수 → `sendMessage()` 명시 호출.
+- **AUTO_SEND_TO_SERVER** (Deprecated): 사용자 발화 → 즉시 AI 응답 (이전 흐름과 호환).
 
 ### voiceRecognitionMode
 
 음성 인식 모드를 설정합니다. `play()` 호출 전에 설정해야 합니다.
 
 ```kotlin
+// v0.8.0+ 기본값이 ALWAYS_ON 이므로 일반적으로 호출 불필요
 klleonOndeviceSdk.voiceRecognitionMode = VoiceRecognitionMode.ALWAYS_ON
 ```
 
 **모드:**
 | 모드 | 설명 |
 |------|------|
-| `DISCRETE` | 단발 모드 (기본값). 수동으로 시작/종료 |
-| `ALWAYS_ON` | 상시 리스닝. play() 후 자동 시작, 세션 유지 |
+| `ALWAYS_ON` | 상시 리스닝 (v0.8.0+ 기본값). `play()` 후 자동 시작, 세션 유지 |
+| `DISCRETE` | 단발 모드. 수동으로 `startVoiceRecognition()` 시작/종료 (Deprecated 흐름) |
 
 ### startAlwaysOnListening()
 
-ALWAYS_ON 리스닝을 수동으로 시작합니다.
+ALWAYS_ON 리스닝을 시작합니다. `voiceRecognitionMode = ALWAYS_ON` 인 경우 `play()` 내부에서 자동 호출되므로 일반적으로 외부에서 직접 호출할 필요 없음. 권한 거부 후 재허용 같은 특수 흐름에서만 명시 호출.
 
 ```kotlin
 val success: Boolean = klleonOndeviceSdk.startAlwaysOnListening()
@@ -476,6 +571,42 @@ ALWAYS_ON 자동 리스닝 중인지 확인합니다.
 
 ```kotlin
 val isListening: Boolean = klleonOndeviceSdk.isAutoListening()
+```
+
+### startVoiceRecognition()
+
+⚠️ **Deprecated (v0.8.0+)** — `startAlwaysOnListening()` 사용 권장. v0.9.0+ 에서 제거 예정.
+
+DISCRETE 모드 음성 인식을 시작합니다. 마이크 녹음을 시작하고 WebSocket으로 START_VOICE 신호를 전송합니다. 무음이 감지되면 자동으로 녹음을 종료하고 END_VOICE 신호를 전송합니다.
+
+```kotlin
+@Deprecated("DISCRETE 모드 음성 인식은 v0.9.0+ 에서 제거 예정")
+fun startVoiceRecognition(
+    config: SilenceDetectionConfig = SilenceDetectionConfig.default()
+): Boolean
+```
+
+**매개변수:**
+- `config`: 무음 감지 설정 (선택, 기본값: `SilenceDetectionConfig.default()`)
+
+**반환값:** 성공 여부 (Boolean)
+
+호출 전 `sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE` 명시 필요 (v0.8.0+ 기본값이 ALWAYS_ON 이므로).
+
+### stopVoiceRecognition()
+
+음성 인식을 정지합니다. DISCRETE 모드 흐름의 수동 종료에 사용.
+
+```kotlin
+klleonOndeviceSdk.stopVoiceRecognition()
+```
+
+### isVoiceRecognizing()
+
+음성 인식 중인지 확인합니다.
+
+```kotlin
+val isRecognizing: Boolean = klleonOndeviceSdk.isVoiceRecognizing()
 ```
 
 ---

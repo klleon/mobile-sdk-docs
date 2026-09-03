@@ -158,7 +158,8 @@ fun WorkerScreen(
                                     klleonSdkViewInstance = view,
                                     sdkKey = "YOUR_SDK_KEY",
                                     avatarId = "character_001",
-                                    language = "ko_kr"
+                                    language = "ko_kr",
+                                    // sttMode = SttMode.STT_ONLY,  // v0.8.0+ 기본값
                                 )
                                 // 60초 무활동 시 자동 대기화면
                                 klleonOndeviceSdk.setIdleTimeout()
@@ -215,24 +216,11 @@ fun WorkerScreen(
                 }
             }
 
-            // 음성 인식 버튼
+            // 언어 전환 버튼
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
-                    onClick = {
-                        if (klleonOndeviceSdk.isVoiceRecognizing()) {
-                            klleonOndeviceSdk.stopVoiceRecognition()
-                        } else {
-                            klleonOndeviceSdk.startVoiceRecognition()
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("음성 인식")
-                }
-
                 Button(
                     onClick = {
                         klleonOndeviceSdk.sendChangeLanguage("en")
@@ -240,6 +228,38 @@ fun WorkerScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text("영어 전환")
+                }
+            }
+        }
+    }
+}
+```
+
+> v0.8.0 부터 `voiceRecognitionMode` 기본값이 `ALWAYS_ON` 이라 `play()` 직후 마이크 세션이 자동 시작됩니다. 마이크 버튼은 일반적으로 불필요 — STT 결과는 [ALWAYS_ON STT 흐름](#always_on-stt-결과-수신-stt_only-흐름) 예제 참고. DISCRETE 모드 (`startVoiceRecognition`) 가 필요하면 [Legacy 가이드](../guides/guides#6-음성-인식-통합) 참고.
+
+## ALWAYS_ON STT 결과 수신 (STT_ONLY 흐름)
+
+v0.8.0 권장 패턴. `play()` 후 자동 시작되는 마이크 세션의 STT 결과를 `sdkState` 로 받아, 앱이 후처리한 뒤 `sendMessage()` 를 명시 호출합니다.
+
+```kotlin
+@Composable
+fun AlwaysOnSttScreen(klleonOndeviceSdk: KlleonOndeviceSdk) {
+    LaunchedEffect(Unit) {
+        klleonOndeviceSdk.sdkState.collect { state ->
+            val json = JSONObject(state)
+            val chatType = json.optString("chat_type")
+            val message = json.optString("message")
+
+            when (chatType) {
+                "STT_RESULT" -> {
+                    if (message.isNotBlank()) {
+                        // 필터/검수 후 명시 전송 (욕설 차단, 명령어 인터셉트 등 가능)
+                        klleonOndeviceSdk.sendMessage(message)
+                    }
+                }
+                "STT_AUTH_ERROR" -> {
+                    // v0.7.0+: STT 토큰 V2 attestation 인증 실패
+                    Log.e("Stt", "Auth error: $message")
                 }
             }
         }

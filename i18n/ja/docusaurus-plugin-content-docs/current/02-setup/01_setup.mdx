@@ -1,53 +1,53 @@
 ---
 id: setup
 sidebar_position: 2
-title: セットアップ
+title: setup
 sidebar_label: setup
 ---
 
 # セットアップ
 
 ## 1) 要件
-- **最小SDK**: 26 (Android 8.0)
-- **ターゲットSDK**: 36
-- **サポートABI**: arm64-v8a, armeabi-v7a
+- **最小 SDK**: 26（Android 8.0）
+- **ターゲット SDK**: 36
+- **対応 ABI**: arm64-v8a, armeabi-v7a
 
-### スペック要件
+### 推奨スペック
 
-| 項目 | 最小スペック | 備考 |
+| 項目 | 推奨スペック | 備考 |
 |------|----------|------|
-| Android | API 26 (8.0) 以上 | |
-| CPU | ARM 64bit (ARMv8) | 4コア以上 |
-| RAM | 4GB 以上 | |
-| GPU | OpenCL 1.2 + `cl_khr_fp16` | GPU推論必須 |
-| GPU性能 | FP32 ~200 GFLOPS 以上 | 基準: Galaxy S9 (Mali-G72 MP18, ~247 GFLOPS) |
+| Android | API 26（8.0）以上 | |
+| CPU | ARM 64bit（ARMv8） | 8 コア以上 |
+| RAM | 6GB 以上 | |
+| GPU | OpenCL 1.2 + `cl_khr_fp16` | GPU 推論に必須 |
+| GPU 性能 | FP32 ~300 GFLOPS 以上 | 基準: Galaxy Tab S9 FE+（Mali-G68 MP5, ~300 GFLOPS） |
 
 :::warning 事前検証が必要です
-カタログスペックだけではSDKの動作を保証できません。
+カタログスペックだけでは SDK の動作を保証できません。
 
-- **同じ数値、異なる結果**: 類似の性能(GFLOPS)のGPUでも、ベンダー(Mali/Adreno/PowerVR)によって推論時間が2〜3倍異なるケースが確認されています。
-- **GPUよりCPUが重要**: SDK全体の処理の約2/3がCPU作業です。GPUスペックだけで判断すると、実際の性能を予測できません。
-- **ドライバー互換性**: OpenCLドライバーのバグにより、GPU delegateの初期化が失敗するデバイスが存在します。同じモデルでもOSバージョンによって動作が異なる場合があります。
-- **発熱スロットリング**: 長時間動作時に発熱によりCPU/GPUクロックが低下し、性能が劣化します。
-- **配布後の問題発見時のコスト**: キオスク/TVなどの大量配布環境で問題が発生した場合、現場対応コストが発生します。5分のベンチマークで事前に確認すれば、このリスクを排除できます。
+- **同じ数値でも結果が異なります**: 性能（GFLOPS）が近い GPU であっても、ベンダー（Mali/Adreno/PowerVR）によって推論時間が 2〜3 倍異なる事例が確認されています。
+- **GPU より CPU が重要です**: SDK 全体の処理の約 3 分の 2 は CPU 処理です。GPU スペックだけで判断すると実際の性能を予測できません。
+- **ドライバの互換性**: OpenCL ドライバの不具合により GPU delegate の初期化に失敗する端末が存在します。同じモデルでも OS バージョンによって動作が変わることがあります。
+- **発熱によるスロットリング**: 長時間動作すると発熱により CPU/GPU のクロックが下がり、性能が低下します。
+- **配布後に問題が見つかるとコストが大きくなります**: キオスクや TV など大量配布環境で問題が発生すると、現場対応コストが発生します。5 分間のベンチマークで事前に確認すれば、このリスクを取り除けます。
 
-**新規デバイス導入前にベンチマークアプリでの事前検証を推奨します。**
+**新規デバイスの導入前に、ベンチマークアプリでの事前検証が必要です。**
 
 | 項目 | 合格基準 |
 |------|----------|
-| OpenCLサポート | OpenCL 1.2+ & `cl_khr_fp16` |
-| TFLite GPU推論 | 初期化成功 |
-| 推論時間 | &lt;60ms (前処理/後処理を除く) |
-| FPS (発話時) | 24fps以上を維持 |
-| 5分間連続動作 | メモリ安定、発熱 &lt;45°C |
+| OpenCL 対応 | OpenCL 1.2+ & `cl_khr_fp16` |
+| TFLite GPU 推論 | 初期化に成功すること |
+| 推論時間 | &lt;50ms（前処理・後処理を除く） |
+| FPS（発話時） | 24fps 以上を維持 |
+| 5 分間の連続動作 | メモリが安定、発熱 &lt;45°C |
 :::
 
 ---
 
 ### リソース
 
-SDKにはビデオファイル(`.mp4`)と顔モデルファイル(`.npz`)が必要です。
-これらのファイルを`assets`(`src/main/assets`)フォルダに配置した後、`ResourceManager.init()`を呼び出してキャッシュコピーおよび初期化を行います。
+SDK にはビデオファイル（`.mp4`）と顔モデルファイル（`.npz`）が必要です。
+これらのファイルを `assets`（`src/main/assets`）フォルダに配置したうえで、`ResourceManager.init()` を呼び出してキャッシュへのコピーと初期化を行います。
 
 ```kotlin
 import io.klleon.ondevice.ResourceManager
@@ -60,20 +60,20 @@ ResourceManager.init(
     npzFileName = "loop_sample.npz",
     avatarId = "character_001",
     onSuccess = {
-        // リソース準備完了 — play() 呼び出し可能
+        // リソースの準備完了 — play() を呼び出せます
     },
     onError = { error ->
-        Log.e("Setup", "リソース準備失敗", error)
+        Log.e("Setup", "リソースの準備に失敗しました", error)
     }
 )
 ```
 
 :::info
-`init()` 完了後、内部パスが自動設定されます。
-`play()` 呼び出し前に必ず `init()` の `onSuccess` コールバックが呼び出されている必要があります。
+`init()` の完了後に内部パスが自動設定されます。
+`play()` を呼び出す前に、必ず `init()` の `onSuccess` コールバックが呼ばれている必要があります。
 :::
 
-## 2) Android構成
+## 2) Android の構成
 
 ```kotlin
 android {
@@ -92,25 +92,25 @@ android {
 }
 ```
 
-## 3) Gradle依存関係
+## 3) Gradle 依存関係
 
-アプリレベルの `build.gradle.kts` に以下の依存関係を追加します：
+アプリレベルの `build.gradle.kts` に次の依存関係を追加します。
 
 ```kotlin
 dependencies {
     // SDK
-    implementation("io.klleon:ondevice-sdk:0.5.0")
+    implementation("io.klleon:ondevice-sdk:0.12.0")
 
-    // Coroutines（SDK必須）
+    // Coroutines（SDK に必須）
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 }
 ```
 
 :::info バンドルライブラリ
-SDK AARには以下のライブラリが含まれています：
+SDK の AAR には次のライブラリが含まれています。
 - OkHttp, Okio, Retrofit
-- Jackson (Core, Module)
+- Jackson（Core, Module）
 - TensorFlow Lite
 - OpenCV
 - PyTorch Mobile
@@ -118,7 +118,7 @@ SDK AARには以下のライブラリが含まれています：
 - ONNX Runtime
 - Agora RTC
 
-アプリでOkHttpまたはOkioを使用するライブラリ（例：Coil）がある場合、バージョン競合が発生する可能性があります。その場合、`RuntimeClasspath`から該当グループをexcludeしてください：
+アプリ側で OkHttp または Okio を利用するライブラリ（例: Coil）がある場合、バージョン競合が発生することがあります。その場合は `RuntimeClasspath` から該当グループを exclude してください。
 ```kotlin
 configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true) }.configureEach {
     exclude(group = "com.squareup.okhttp3")
@@ -129,6 +129,6 @@ configurations.matching { it.name.contains("RuntimeClasspath", ignoreCase = true
 
 ## 4) ProGuard / R8
 
-SDK AARに必要なProGuard/R8ルールが含まれているため、**別途の設定は不要です。**
+SDK の AAR に必要な ProGuard/R8 ルールが含まれているため、**追加の設定は不要です。**
 
-`UnsatisfiedLinkError` が発生した場合は、上記Android構成の `jniLibs.pickFirsts` 設定を確認してください。
+`UnsatisfiedLinkError` が発生した場合は、上記 Android 構成の `jniLibs.pickFirsts` 設定を確認してください。

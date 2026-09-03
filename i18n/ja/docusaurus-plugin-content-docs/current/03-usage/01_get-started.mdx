@@ -1,25 +1,25 @@
 ---
 id: get-started
 sidebar_position: 3
-title: はじめに
+title: get-started
 sidebar_label: はじめに
 ---
 
 # はじめに
 
-## 前提条件
+## 事前要件
 
-Klleon Ondevice SDKを使用する前に、以下の準備が必要です：
+Klleon Ondevice SDK を使用する前に、次の準備が必要です。
 
-1.  **Kleon Studioアカウント**: SDK機能を使用するには [Kleon Studio](https://www.studio.klleon.io/) アカウントが必要です。アカウントをお持ちでない場合は、まずご登録ください。
-2.  **SDKキーの発行**: ドメイン登録後、該当ドメインで使用する固有の `sdk_key` が発行されます。このキーはSDKの初期化に必要です。
-3.  **アバターID**: 使用するAIアバターの `avatarId` が必要です。
+1.  **Kleon Studio アカウント**: SDK の機能を利用するには [Kleon Studio](https://www.studio.klleon.io/) のアカウントが必要です。アカウントがない場合は、まずご登録ください。
+2.  **SDK キーの発行**: ドメイン登録後、そのドメインで使用する固有の `sdk_key` が発行されます。このキーは SDK の初期化に必要です。
+3.  **アバター ID**: 使用する AI アバターの `avatarId` が必要です。
 
 ## 権限
 
 ### AndroidManifest.xml
 
-`AndroidManifest.xml` に必要な権限を追加してください：
+`AndroidManifest.xml` に必要な権限を追加してください。
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -70,7 +70,7 @@ class MainActivity : ComponentActivity() {
 }
 ```
 
-## SDKの初期化
+## SDK の初期化
 
 ### 基本設定
 
@@ -79,7 +79,7 @@ import io.klleon.ondevice.KlleonOndeviceSdk
 import io.klleon.ondevice.ResourceManager
 import io.klleon.ondevice.render.KlleonSdkView
 
-// アプリ全体で単一インスタンスを共有
+// アプリ全体で単一インスタンスを共有します
 object SdkConfig {
     val sdk = KlleonOndeviceSdk()
 }
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // リソース初期化（キャッシュコピー + YUV変換 + メモリロード）
+        // リソースの初期化（キャッシュへのコピー + YUV 変換 + メモリ読み込み）
         resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
@@ -118,27 +118,31 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // リソース準備完了 — play() 呼び出し可能
+                // リソースの準備完了 — play() を呼び出せます
             },
             onError = { error ->
-                Log.e("MainActivity", "リソース準備失敗", error)
+                Log.e("MainActivity", "リソースの準備に失敗しました", error)
             }
         )
     }
 }
 ```
 
-### SDKの開始 (play)
+### SDK の開始（play）
+
+v0.8.0 から `voiceRecognitionMode` のデフォルトは `ALWAYS_ON`、`sttMode` のデフォルトは `STT_ONLY` です。追加の設定なしに `play()` を呼び出すだけでマイクセッションが自動的に開始され、STT の結果は `sdkState` の `STT_RESULT` chat_type で通知されます。
 
 ```kotlin
-// play()はsuspend関数のためコルーチン内で呼び出し
+// play() は suspend 関数のため、コルーチンから呼び出します
 CoroutineScope(Dispatchers.IO).launch {
     klleonOndeviceSdk.play(
         context = this@Activity,               // Context
-        klleonSdkViewInstance = sdkView,       // KlleonSdkViewインスタンス
-        sdkKey = "YOUR_SDK_KEY",               // SDKキー
-        avatarId = "character_001",            // アバターID
-        language = "ko_kr"                     // 言語 (ko_kr, en_us, ja_jp)
+        klleonSdkViewInstance = sdkView,       // KlleonSdkView インスタンス
+        sdkKey = "YOUR_SDK_KEY",               // SDK キー
+        avatarId = "character_001",            // アバター ID
+        language = "ko_kr",                    // 言語（ko_kr, en_us, ja_jp）
+        // sttMode = SttMode.STT_ONLY,         // v0.8.0+ のデフォルト（省略可）
+        // useMelSpectrogram = false,          // v0.12.0+ のデフォルト（省略可）
     )
 }
 ```
@@ -147,15 +151,17 @@ CoroutineScope(Dispatchers.IO).launch {
 | パラメータ | 型 | 必須 | 説明 |
 |---------|------|------|------|
 | `context` | Context | O | 現在のコンテキスト |
-| `klleonSdkViewInstance` | KlleonSdkView? | O | レンダリングビューインスタンス |
-| `sdkKey` | String | O | SDK認証キー |
-| `avatarId` | String | O | AIアバターID |
-| `language` | String | O | 言語コード (`ko_kr`, `en_us`, `ja_jp`) |
+| `klleonSdkViewInstance` | KlleonSdkView? | O | レンダリングビューのインスタンス |
+| `sdkKey` | String | O | SDK 認証キー |
+| `avatarId` | String | O | AI アバター ID |
+| `language` | String | O | 言語コード（`ko_kr`, `en_us`, `ja_jp`） |
+| `sttMode` | SttMode | X | STT 結果の通知モード（v0.8.0+ デフォルト `STT_ONLY`） |
+| `useMelSpectrogram` | Boolean | X | リップシンクのパイプラインモード（v0.12.0+ デフォルト `false`）。`true` の場合、キャッシュ発話 API を利用できます |
 
 ## 次のステップ
 
-設定完了後：
+セットアップ完了後：
 
-1. 使用可能なメソッドは [APIリファレンス](api-reference) を確認してください
+1. 利用可能なメソッドは [API リファレンス](api-reference) を確認してください
 2. 最適な統合のために [ガイド](../guides/guides) に従ってください
 3. 実装パターンは [使用例](../examples/examples) を確認してください

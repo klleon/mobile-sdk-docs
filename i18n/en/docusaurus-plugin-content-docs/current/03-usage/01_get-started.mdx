@@ -9,17 +9,17 @@ sidebar_label: Get Started
 
 ## Prerequisites
 
-Before using the Klleon Ondevice SDK, the following preparations are required:
+Before using the Klleon Ondevice SDK, you need the following:
 
-1.  **Kleon Studio Account**: A [Kleon Studio](https://www.studio.klleon.io/) account is required to use SDK features. If you don't have an account, please sign up first.
-2.  **SDK Key Issuance**: After domain registration, a unique `sdk_key` for use with that domain will be issued. This key is required for SDK initialization.
+1.  **Kleon Studio account**: A [Kleon Studio](https://www.studio.klleon.io/) account is required to use the SDK features. If you don't have one, please sign up first.
+2.  **SDK key issuance**: After registering your domain, a unique `sdk_key` for that domain is issued. This key is required to initialize the SDK.
 3.  **Avatar ID**: You need the `avatarId` of the AI avatar you want to use.
 
 ## Permissions
 
 ### AndroidManifest.xml
 
-Add the required permissions to your `AndroidManifest.xml`:
+Add the required permissions to `AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -79,7 +79,7 @@ import io.klleon.ondevice.KlleonOndeviceSdk
 import io.klleon.ondevice.ResourceManager
 import io.klleon.ondevice.render.KlleonSdkView
 
-// Share a single instance across the entire app
+// Share a single instance across the app
 object SdkConfig {
     val sdk = KlleonOndeviceSdk()
 }
@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Initialize resources (cache copy + YUV conversion + memory loading)
+        // Initialize resources (copy to cache + YUV conversion + load into memory)
         resourceManager.init(
             context = this,
             mp4FileName = "loop_sample.mp4",
@@ -118,10 +118,10 @@ class MainActivity : ComponentActivity() {
             styleFileName = "loop_sample.style",
             avatarId = "character_001",
             onSuccess = {
-                // Resources ready — play() can be called
+                // Resources ready — play() can now be called
             },
             onError = { error ->
-                Log.e("MainActivity", "Resource preparation failed", error)
+                Log.e("MainActivity", "Failed to prepare resources", error)
             }
         )
     }
@@ -130,32 +130,38 @@ class MainActivity : ComponentActivity() {
 
 ### Starting the SDK (play)
 
+Since v0.8.0, the default for `voiceRecognitionMode` is `ALWAYS_ON` and the default for `sttMode` is `STT_ONLY`. With no extra configuration, simply calling `play()` starts the microphone session automatically, and STT results are delivered through the `STT_RESULT` chat_type of `sdkState`.
+
 ```kotlin
-// play() is a suspend function, so call it within a coroutine
+// play() is a suspend function, so call it from a coroutine
 CoroutineScope(Dispatchers.IO).launch {
     klleonOndeviceSdk.play(
         context = this@Activity,               // Context
         klleonSdkViewInstance = sdkView,       // KlleonSdkView instance
         sdkKey = "YOUR_SDK_KEY",               // SDK key
         avatarId = "character_001",            // Avatar ID
-        language = "ko_kr"                     // Language (ko_kr, en_us, ja_jp)
+        language = "ko_kr",                    // Language (ko_kr, en_us, ja_jp)
+        // sttMode = SttMode.STT_ONLY,         // v0.8.0+ default (can be omitted)
+        // useMelSpectrogram = false,          // v0.12.0+ default (can be omitted)
     )
 }
 ```
 
 **Parameters:**
 | Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
+|---------|------|------|------|
 | `context` | Context | O | Current context |
 | `klleonSdkViewInstance` | KlleonSdkView? | O | Rendering view instance |
 | `sdkKey` | String | O | SDK authentication key |
 | `avatarId` | String | O | AI avatar ID |
 | `language` | String | O | Language code (`ko_kr`, `en_us`, `ja_jp`) |
+| `sttMode` | SttMode | X | STT result delivery mode (v0.8.0+ default `STT_ONLY`) |
+| `useMelSpectrogram` | Boolean | X | Lip-sync pipeline mode (v0.12.0+ default `false`). When `true`, the cached speech API becomes available |
 
 ## Next Steps
 
-After completing the setup:
+After completing setup:
 
 1. Check the [API Reference](api-reference) for available methods
 2. Follow the [Guides](../guides/guides) for optimal integration
-3. Check the [Usage Examples](../examples/examples) for implementation patterns
+3. See [Usage Examples](../examples/examples) for implementation patterns

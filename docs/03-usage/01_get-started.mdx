@@ -130,6 +130,8 @@ class MainActivity : ComponentActivity() {
 
 ### SDK 시작 (play)
 
+v0.8.0 부터 `voiceRecognitionMode` 기본값이 `ALWAYS_ON` 이고 `sttMode` 기본값이 `STT_ONLY` 입니다. 별도 설정 없이 `play()` 호출만으로 마이크 세션이 자동 시작되며, STT 결과는 `sdkState` 의 `STT_RESULT` chat_type 으로 전달됩니다.
+
 ```kotlin
 // play()는 suspend 함수이므로 코루틴에서 호출
 CoroutineScope(Dispatchers.IO).launch {
@@ -138,7 +140,9 @@ CoroutineScope(Dispatchers.IO).launch {
         klleonSdkViewInstance = sdkView,       // KlleonSdkView 인스턴스
         sdkKey = "YOUR_SDK_KEY",               // SDK 키
         avatarId = "character_001",            // 아바타 ID
-        language = "ko_kr"                     // 언어 (ko_kr, en_us, ja_jp)
+        language = "ko_kr",                    // 언어 (ko_kr, en_us, ja_jp)
+        // sttMode = SttMode.STT_ONLY,         // v0.8.0+ 기본값 (생략 가능)
+        // useMelSpectrogram = false,          // v0.12.0+ 기본값 (생략 가능)
     )
 }
 ```
@@ -151,6 +155,8 @@ CoroutineScope(Dispatchers.IO).launch {
 | `sdkKey` | String | O | SDK 인증 키 |
 | `avatarId` | String | O | AI 아바타 ID |
 | `language` | String | O | 언어 코드 (`ko_kr`, `en_us`, `ja_jp`) |
+| `sttMode` | SttMode | X | STT 결과 전달 모드 (v0.8.0+ 기본값 `STT_ONLY`) |
+| `useMelSpectrogram` | Boolean | X | 립싱크 파이프라인 모드 (v0.12.0+ 기본값 `false`). `true`면 캐시 발화 API 사용 가능 |
 
 ## 다음 단계
 

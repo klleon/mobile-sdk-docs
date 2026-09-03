@@ -7,44 +7,44 @@ sidebar_label: Limitations
 
 # Known Limitations
 
-Please review the following requirements and limitations before using the SDK.
+Please review the requirements and limitations below before using the SDK.
 
 ## Device Requirements
 
-| Item | OpenCL Minimum | OpenCL Recommended |
-|------|----------------|-------------------|
-| **Android Version** | 8.0 (API 26) | 12+ (API 31) |
-| **RAM** | 4GB | 6GB or more |
-| **Storage** | 500MB | 1GB or more |
+| Item | OpenCL minimum | OpenCL recommended |
+|------|-------------|-------------|
+| **Android version** | 8.0 (API 26) | 12+ (API 31) |
+| **RAM** | 4 GB | 6 GB or more |
+| **Storage** | 500 MB | 1 GB or more |
 | **GPU** | OpenGL ES 2.0 / OpenCL 1.2 | OpenGL ES 3.0+ / OpenCL 2.0+ |
 
 ## Supported Architectures (ABI)
 
 | ABI | Supported | Notes |
-|-----|-----------|-------|
+|-----|----------|------|
 | `arm64-v8a` | Supported | Most modern devices |
 | `armeabi-v7a` | Supported | Older 32-bit devices |
 | `x86_64` | Not supported | Emulator |
 | `x86` | Not supported | Emulator |
 
-:::warning Emulator Notice
+:::warning Emulator caveats
 The SDK does not work on x86/x86_64 emulators.
 
-**Testing methods:**
+**How to test:**
 - Use a real Android device (recommended)
-- Use an ARM-based emulator (e.g., default emulator on Apple Silicon Macs)
+- Use an ARM-based emulator (for example, the default emulator on Apple Silicon Macs)
 :::
 
 ## Network Requirements
 
-### Prerequisites
+### Mandatory Conditions
 - **Internet connection**: Required for real-time WebSocket communication
 - **Protocol**: HTTPS / WSS (TLS 1.2 or higher)
 - **Port**: 443
 
 ### Firewall Configuration
 ```
-# Domains to allow
+# Domains that must be allowed
 *.klleon.io
 ```
 
@@ -55,38 +55,48 @@ The SDK does not work on x86/x86_64 emulators.
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
-## Audio Limitations
+## Audio-related Limitations
 
 ### USB Microphone Compatibility
 
-- **MMAP policy**: MMAP is managed internally by the SDK and is disabled by default. Enabling MMAP may cause stream open failures with some USB microphones.
-- **USB device selection**: USB microphones are automatically detected and selected when connected.
-- **Incompatible devices**: On some MediaTek-based TVs, opening audio streams from USB composite devices (e.g., DM30RGB) may fail.
+- **MMAP policy**: MMAP is managed internally by the SDK and is disabled by default. Enabling MMAP can cause stream-open failures on some USB microphones.
+- **USB device selection**: When a USB microphone is connected, it is detected and selected automatically.
+- **Incompatible devices**: On some MediaTek-based TVs, opening the audio stream of a USB composite device (for example, DM30RGB) can fail.
 
 ### Echo Prevention
-- Voice recognition is automatically blocked during avatar speech.
+- Speech recognition is automatically blocked while the avatar is speaking.
+
+### Playback Mode Trade-off (v0.12.0+)
+- The default is **non-streaming** (`RuntimeConfig.audioNonStreaming = true`). Because the speech audio is played only after it has been fully received, mid-speech dropouts disappear but **the delay before the first sound increases**.
+- If you need low latency, set it to `false`; on slow networks, however, buffer underruns can end speech prematurely (choppy playback).
+- The value is captured when speech starts, so toggling it mid-speech does not affect the current utterance.
+
+### Cached Speech Constraints (v0.12.0+)
+- Works only in a session started with `play(useMelSpectrogram = true)`. Otherwise it returns `Result.failure(IllegalStateException)`.
+- The audio format is fixed to **16 kHz mono int16 little-endian PCM** (cache contract). Other sample rates are not supported.
+- Cached speech and server speech never play simultaneously — while one is in progress, the other waits or is interrupted.
 
 ## Known Issues
 
 ### 1. Memory Usage
 
-Memory usage can be high during video processing and AI inference. In particular, calling `ResourceManager.init()` allocates **approximately 1GB of native memory** for YUV frame buffers.
+Memory usage can be high during video processing and AI inference. In particular, calling `ResourceManager.init()` allocates **about 1 GB of native memory** for YUV frame buffers.
 
 #### Buffer Lifecycle
 
-`finish()` retains buffers for immediate reuse when re-entering with the same avatar (0ms). For complete memory release, `deinit()` must be explicitly called.
+`finish()` keeps the buffers so they can be reused immediately when re-entering the same avatar (0 ms). Complete memory release requires an explicit `deinit()` call.
 
 | Scenario | Behavior |
-|----------|----------|
-| Same avatar re-entry | `init(same avatarId)` -> Buffer reuse (0ms) |
-| Different avatar switch | `init(new avatarId)` -> Automatically release previous buffer + new allocation |
-| App background transition | `onTrimMemory` -> `deinit()` -> Buffer release |
-| App exit | `CharacterActivity.onDestroy` -> `deinit()` -> Complete release |
-| Process force kill | OS kernel auto-reclaims (no code needed) |
+|----------|------|
+| Re-entering the same avatar | `init(same avatarId)` → buffers reused (0 ms) |
+| Switching to a different avatar | `init(new avatarId)` → previous buffers released automatically + new allocation |
+| App moved to background | `onTrimMemory` → `deinit()` → buffers released |
+| App terminated | `CharacterActivity.onDestroy` → `deinit()` → fully released |
+| Process force-killed | Reclaimed automatically by the OS kernel (no code needed) |
 
 #### Required Implementation Patterns
 
-**Application class -- Automatic background memory release:**
+**Application class — automatic memory release in the background:**
 ```kotlin
 class MyApplication : Application() {
     override fun onCreate() {
@@ -104,13 +114,13 @@ class MyApplication : Application() {
 }
 ```
 
-**SDK play screen (ChatActivity, etc.):**
+**SDK playback screen (ChatActivity, etc.):**
 ```kotlin
 override fun onDestroy() {
     super.onDestroy()
-    // finish() is a suspend function, so run it in a coroutine
+    // finish() is a suspend function, so run it from a coroutine
     CoroutineScope(Dispatchers.Default).launch {
-        klleonOndeviceSdk.finish() // Retain buffers (waiting for reuse)
+        klleonOndeviceSdk.finish() // Keeps buffers (waiting for reuse)
     }
 }
 ```
@@ -119,38 +129,38 @@ override fun onDestroy() {
 ```kotlin
 override fun onDestroy() {
     super.onDestroy()
-    // Manually release memory if SDK is not playing (exiting before play)
+    // If the SDK is not playing (left before play), release memory manually
     if (!KlleonOndeviceSdk.playing) {
         ResourceManager.deinit()
     }
 }
 ```
 
-:::info Safe for Duplicate Calls
-- `init()`: When called again with the same avatar (`avatarId`), reuses existing buffer (no duplicate allocation)
-- `deinit()`: Safe to call multiple times (idempotency guaranteed)
-- `finish()`: Safe for duplicate calls due to internal playing state check
+:::info Safe to call repeatedly
+- `init()`: When called again for the same avatar (`avatarId`), existing buffers are reused (no duplicate allocation)
+- `deinit()`: Safe to call multiple times (idempotent)
+- `finish()`: Safe against duplicate calls thanks to the internal playing-state check
 :::
 
-### 2. Background Limitations
+### 2. Background Restrictions
 
-Video processing is paused when the app transitions to the background.
+Video processing is paused when the app moves to the background.
 
 
-### 3. Single Instance Limitation
+### 3. Single Instance Restriction
 
-Only **one** `KlleonOndeviceSdk` instance should be created per app.
-Internal coroutine scopes and thread pools are allocated per instance, so creating multiple instances causes resource conflicts and memory leaks.
+You must create **only one** `KlleonOndeviceSdk` instance per app.
+Because internal coroutine scopes and thread pools are allocated per instance, creating multiple instances causes resource conflicts and memory leaks.
 
-**Recommended: Manage as an object singleton**
+**Recommended: manage it as an object singleton**
 
 ```kotlin
-// Share a single instance across the entire app
+// Share a single instance across the app
 object SdkConfig {
     val sdk = KlleonOndeviceSdk()
 }
 
-// Use in Activity
+// Usage in an Activity
 class ChatActivity : ComponentActivity() {
     private val klleonOndeviceSdk = SdkConfig.sdk  // Reuse the same instance
 }
@@ -160,8 +170,8 @@ class AnotherActivity : ComponentActivity() {
 }
 ```
 
-:::caution Warning
-If you create `KlleonOndeviceSdk()` directly in an Activity field, a new instance is created each time the Activity is recreated (screen rotation, low memory, etc.), causing thread pools from previous instances to accumulate.
+:::caution Caution
+If you create `KlleonOndeviceSdk()` directly in an Activity field, a new instance is created every time the Activity is recreated (screen rotation, low memory, etc.), and the thread pools of previous instances accumulate.
 :::
 
 ```kotlin
@@ -174,11 +184,11 @@ class MainActivity : Activity() {
 
 ### 4. Screen Rotation
 
-SDK state may be reset when an Activity is recreated due to screen rotation.
+If the Activity is recreated on screen rotation, the SDK state may be reset.
 
 **Solution:**
 ```xml
-<!-- AndroidManifest.xml - Handle screen rotation directly -->
+<!-- AndroidManifest.xml - handle screen rotation yourself -->
 <activity
     android:name=".MainActivity"
     android:configChanges="orientation|screenSize|screenLayout" />
@@ -186,28 +196,28 @@ SDK state may be reset when an Activity is recreated due to screen rotation.
 
 ### 5. Android TV Specifics
 
-- On TV platforms, auto-focus is assigned to the first focusable element on layout changes, which may cause the keyboard to appear automatically.
-- Block this at the source with `focusProperties { canFocus = false }`, then enable only on click.
-- Some MediaTek-based TVs may have compatibility issues with certain USB audio devices.
+- On TV platforms, layout changes can automatically give focus to the first focusable element, which may cause the keyboard to appear automatically.
+- Block this at the source with `focusProperties { canFocus = false }` and enable focus only on click.
+- Some USB audio devices may have compatibility issues on MediaTek-based TVs.
 
 ## Performance Optimization Tips
 
 ### GPU Acceleration
 
-The SDK uses GPU acceleration by default. If issues occur on some low-end devices:
+The SDK uses GPU acceleration by default. If problems occur on some low-end devices:
 
 ```kotlin
-// Check logs when GPU issues occur
+// Check the logs when GPU issues occur
 adb logcat | grep "Klleon_"
 ```
 
 ### Battery Optimization
 
-Battery consumption can be significant during prolonged use:
+Battery consumption can be high during extended use:
 - Call `finish()` when not in use
-- Recommended to stop processing when the screen is off
-- Utilize standby mode with `enterStandby()` / `exitStandby()`
+- Stopping processing when the screen turns off is recommended
+- Use standby mode via `enterStandby()` / `exitStandby()`
 
 ## Support
 
-For issues not resolved by the above limitations, please contact us through [Klleon Studio](https://www.studio.klleon.io/).
+For issues that the limitations above do not resolve, please contact us through [Klleon Studio](https://www.studio.klleon.io/).

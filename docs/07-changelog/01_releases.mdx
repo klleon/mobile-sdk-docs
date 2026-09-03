@@ -11,7 +11,227 @@ Klleon Ondevice SDK의 버전별 변경사항입니다.
 
 ---
 
-## v0.6.0 (Latest)
+## v0.12.0 (Latest)
+
+**릴리스일**: 2026년 8월
+
+### 새로운 기능
+- `play()`에 `useMelSpectrogram: Boolean = false` 파라미터 추가 — MEL 스펙트로그램 기반 립싱크 파이프라인으로 전환하는 모드 스위치. `false`(기본)는 기존 AUDIO_FEATURE 경로 그대로.
+- 캐시 발화 API 추가: `speakCachedAsset(assetName: String): Result<Int>`, `speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>`, `isCachedSpeechReady(): Boolean`. 미리 준비한 PCM(16kHz mono int16 LE)을 서버 왕복 없이 즉시 발화한다. `play(useMelSpectrogram = true)` 세션에서만 동작.
+- `RuntimeConfig.audioNonStreaming` 추가 — 발화 오디오를 끝까지 받은 뒤 한 번에 재생(기본 `true`). 중간 버퍼 언더런으로 인한 끊김이 사라지는 대신 첫 소리 지연이 늘어난다. `false`로 두면 기존 스트리밍 재생.
+- 서버 PCM→MEL 라이브 발화: 서버가 보낸 PCM을 단일 ordered 스트림으로 소비하고, 연결 세대(cid) 기반 가드로 재연결 시 이전 세션 잔여 이벤트를 차단.
+- 세션 계측 통합: `SESSION_VITALS` 단일 이벤트로 네트워크·디바이스 상태를 New Relic에 적재(회선 속도 측정 3분 주기, 1.5MB cap).
+
+### 동작 변경
+- **오디오 재생이 논스트리밍 기본**입니다. API 변경 없이 업그레이드만으로 재생 방식이 바뀝니다. 이전 동작이 필요하면 `RuntimeConfig.audioNonStreaming = false`.
+- `play()`의 default 파라미터 추가는 **소스 호환이지만 바이너리 비호환**입니다. 소비자 앱 재컴파일이 필요합니다(Gradle 의존성 갱신 시 자동).
+
+### 버그 수정
+- 발화 중단(`sendStopSpeech`)과 새 발화 시작이 겹칠 때의 경합 차단 — stop epoch 도입, 중단 후 오디오 재적재 차단, 정리 순서 교정.
+- WebSocket 재연결 시 이전 소켓의 stale 메시지·콜백이 새 세션 상태를 오염시키던 문제 이중 방어. 연결 종료 신호(Disconnected)는 지연 도착해도 반드시 전달.
+- 발화 도중 연결이 끊겼다 복구되면 첫 발화가 `reset()`/`TTS_START` 없이 진행돼 이전 발화 잔여 오디오와 섞이던 문제 수정.
+
+---
+
+## v0.11.2
+
+**릴리스일**: 2026년 7월
+
+### 새로운 기능
+- wake-word 인사말 STT 바이어싱 — Azure `PhraseListGrammar`로 등록 인사말 인식률 개선.
+
+### 버그 수정
+- v0.11.1의 post-speech 가드(TTS_END 후 800ms)를 롤백. 정상 발화 시작까지 지연시키는 부작용이 확인됨.
+- `PhraseListGrammar` 핸들 leak 방지.
+
+---
+
+## v0.11.1
+
+**릴리스일**: 2026년 7월
+
+### 버그 수정
+- AI 발화 종료 직후 이어 말한 사용자 음성 tail이 STT로 새어 다음 턴을 자동 시작시키던 문제 수정.
+- 대기화면 진입 시 마이크 캡처 재시작 — 마이크 OFF 후 복귀하면 wake-word가 감지되지 않던 문제 수정.
+
+---
+
+## v0.11.0
+
+**릴리스일**: 2026년 7월
+
+### 새로운 기능
+- `chat()`에 `sessionId: String?` 파라미터 추가 — 대화 단위 멀티턴 맥락 키. 한 대화(방문객) 시작 시 UUID를 만들어 그 대화의 모든 `chat()` 호출에 동일 값을 전달하고, 대화 종료(무활동/standby) 시 폐기·재생성한다. `null`이면 서버는 이력 없이 단발로 응답(하위호환).
+- `ChatRequest`에 `session_id`(nullable) 필드 추가. 401 재시도 시 동일 `sessionId` 유지로 대화 맥락 보존.
+
+---
+
+## v0.10.3
+
+**릴리스일**: 2026년 6월
+
+### 새로운 기능
+- `avatarState: StateFlow<AvatarState>`: 아바타 발화 라이프사이클 상태를 타입드 Flow로 노출. 포괄적 `sdkState` 문자열 스트림에서 발화 상태를 분리.
+- `AvatarState` enum 추가: `IDLE`(대기) / `PREPARING`(응답 준비중) / `SPEAKING`(발화중).
+
+### 개선
+- `isResponding`을 `avatarState != IDLE` 파생으로 재구성 (boolean 동작 동일).
+
+---
+
+## v0.10.2
+
+**릴리스일**: 2026년 6월
+
+### 새로운 기능
+- `setSttAutoDetect(languages)`: 다국어 자동 인식(언어 식별) — 언어 선택 대기화면 등에서 여러 언어를 동시 수신. Azure AtStart LID 기반(ko/en/ja). 특정 언어로 `sendChangeLanguage` 호출 시 자동 해제.
+- `setWakewordMatching(enabled)`: wake-word 매칭 활성/비활성 토글.
+- `SttProvider.setAutoDetectLanguages()` 계약 추가(default no-op).
+
+---
+
+## v0.10.1
+
+### 버그 수정 / 안정성
+- 일부 기기(저가 TV SoC 등)에서 HW 비디오 디코더가 고착되면 `createDecoderByType` 가 영구 블록되어 초기화가 무한 로딩되던 문제 방어 — 코덱 생성 워치독으로 고착 판정 시 즉시 실패 처리.
+- mp4→YUV 변환 실패를 삼키지 않고 `onError` 로 전파(가짜 성공/깨진 아바타 방지).
+
+API 변경 없음.
+
+---
+
+## v0.10.0
+
+**릴리스일**: 2026년 6월
+
+### Breaking Changes (STT SPI)
+- `SttProvider` 계약 재정의: `startSession`/`endSession`/`release`/`onServerEvent` → `connect`/`disconnect`/`close`/`setEventSink`/`updateToken`.
+- `SttProviderFactory`: `createDefault`/`getById` → `createDefaultOrNull`.
+- `SttServerEvent`·`VoiceServerBridge` 제거, `SttProviderEvent`·`SttSessionStatus`·`SttException`·`SttTokenProvider` 신설.
+- 커스텀 STT provider를 구현한 경우에만 영향. 번들 Azure provider 사용 시 영향 없음.
+
+### 새로운 기능
+- `playRecoveryNotice()`: STT 복구 중 안내 발화.
+- `ResourceManager.loadRecoveryNotice()` / `copyRecoveryNotice()`.
+
+### 개선
+- STT 24/7 안정화: 공통 `SttSessionSupervisor` 리팩터 — 단일 소비자(액터)+epoch 가드로 동시성 안정화, non-auth 취소 자가 재연결+backoff(30s cap), 403 인증 실패(APP_DISABLED/EXPIRED) 분리 처리, changeLanguage 메일박스 라우팅(ANR 방지).
+
+---
+
+## v0.9.4
+
+**릴리스일**: 2026년 6월
+
+### 버그 수정
+- `sendStopSpeech` 중 FaceExtractor cvtColor empty-Mat 크래시 방어.
+
+API 변경 없음.
+
+---
+
+## v0.9.3
+
+**릴리스일**: 2026년 6월
+
+### 버그 수정
+- 아바타 발화가 마이크로 되먹이는 하울링(에코) 차단. 발화(+스피커 잔향) 구간 동안 마이크 입력을 STT로 보내지 않고, 해당 구간의 STT 결과도 드롭(이중 방어).
+- CI 빌드: 케이스 중복 파일로 인한 빌드 실패 수정.
+
+API 변경 없음.
+
+---
+
+## v0.9.2
+
+**릴리스일**: 2026년 6월
+
+### 버그 수정
+- YUV 네이티브 버퍼 use-after-free 크래시(cvtColor SIGSEGV) 수정.
+- producer join 에 timeout 가드 추가 (teardown ANR 방지).
+- 버퍼 세대(generation) 가드로 아바타 전환 시 세션 혼선 차단.
+- Chat 응답 body 로깅을 release 빌드에서 리댁션 (PII / New Relic 유출 차단).
+
+### 개선
+- ChatClient `OkHttpClient` 공유 싱글톤화 (커넥션/스레드풀 재사용).
+- GitHub Actions 태그 자동배포 전환.
+
+---
+
+## v0.9.1
+
+**릴리스일**: 2026년 6월
+
+### 개선
+- Chat API 에러 진단 로깅 강화: `parseServerError`로 비-인증 에러 code/message 추출, 요청/성공/실패 로그에 http·code·body 상세 출력.
+- `ChatRequest` / `ChatResponse` / `DataDto` / `BlockDto` ProGuard keep 룰 추가.
+
+---
+
+## v0.9.0
+
+**릴리스일**: 2026년 6월
+
+### 새로운 기능
+- biz-backend `/api/v1/chat` SDK API 추가 (`sdk.chat()`). 앱은 텍스트/이미지 blocks 만 받고 HTTP·인증·파싱은 SDK가 처리.
+
+---
+
+## v0.8.1
+
+**릴리스일**: 2026년 5월
+
+### 버그 수정
+- Fat AAR R8 minify 시 신규 공개 API 가 obfuscate 되던 회귀 수정. 외부 사용자가 `SttMode`, `wakeword.WakewordResult`, `KlleonOndeviceSdk.Companion.isPlaying()` 등을 정상 import / 호출 가능.
+
+### ProGuard keep 룰 보강
+- `io.klleon.ondevice.SttMode`
+- `io.klleon.ondevice.wakeword.**` (WakewordResult, WakewordMatcher)
+- `io.klleon.ondevice.KlleonOndeviceSdk$Companion`
+
+API 변경 없음. v0.8.0 사용자는 의존 버전만 `0.8.1` 로 교체 권장.
+
+---
+
+## v0.8.0
+
+**릴리스일**: 2026년 5월
+
+### Breaking Changes
+- `KlleonOndeviceSdk.voiceRecognitionMode` 기본값 `DISCRETE` → `ALWAYS_ON`. `play()` 직후 마이크 세션이 자동 시작된다. DISCRETE 흐름을 유지하려면 `play()` 호출 전에 `sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE` 를 명시.
+- `KlleonOndeviceSdk.play()` 의 `sttMode` 기본값 `AUTO_SEND_TO_SERVER` → `STT_ONLY`. STT 결과가 서버로 자동 전송되지 않으며, 앱이 `sdkState` 의 `STT_RESULT` chat_type 수신 후 `sendMessage()` 를 명시 호출해야 한다. 자동 전송을 유지하려면 `sttMode = SttMode.AUTO_SEND_TO_SERVER` 를 명시.
+- `startVoiceRecognition()` `@Deprecated` — DISCRETE 모드 전용. `startAlwaysOnListening()` 사용 권장. v0.9.0+ 에서 제거 예정.
+- `SttMode.AUTO_SEND_TO_SERVER` `@Deprecated` — `STT_ONLY` 사용 권장. v0.9.0+ 에서 제거 예정.
+
+### 마이그레이션
+자세한 절차는 [가이드 → v0.6.0 → v0.8.0 마이그레이션](/category/04-guides) 참고.
+
+### 빌드 변경
+- `sttProvider` 기본값 `agora` → `azure` (Azure Direct STT 권장)
+- debug `ATTEST_BASE_URL` 을 dev EKS (`https://dev.ondevice-biz.klleon.io`) 로 통일. 사내 LAN dev 머신 검증 시 build script 내 주석 라인으로 임시 교체.
+
+---
+
+## v0.7.0
+
+**릴리스일**: 2026년 5월
+
+### Breaking Changes
+- `AgoraSttProvider` `@Deprecated` — Azure Direct STT 권장. Agora Relay STT 는 미래 제거 예정.
+- `VoiceServerBridge.sendRecognizedText()` 제거 — STT 결과 서버 전송 분기가 `SttSessionManager` 로 통합. 외부 호출자는 없었음 (SDK 내부 API).
+
+### 새로운 기능
+- **`SttMode` enum 도입** (`STT_ONLY` / `AUTO_SEND_TO_SERVER`) — `play()` 의 신규 파라미터. 본 버전 기본값은 `AUTO_SEND_TO_SERVER` (v0.8.0 에서 `STT_ONLY` 로 전환).
+- **AppToken V2 attestation**: challenge-token → app-attest OkHttp 흐름 → `app_secret_key` 24h cache (`SecureAttestStorage`). `ResourceManager.init()` 내부에서 `AppToken.initialize()` 자동 호출.
+- `ChatType.STT_AUTH_ERROR` / `SignalType.STT_AUTH_ERROR` 신규 — STT 토큰 V2 인증 실패 (`STT_ERROR` 와 분리).
+- 모델 복호화 키 V1 cert hash → V2 `app_secret_key` 전환 (`ServerKeyProvider` 신규, `SignatureBasedKeyProvider` 제거).
+
+### 변경사항
+- STT 토큰 fetch 시 `X-App-Secret-Key` 헤더 사용, 401 시 1회 retry, 403 즉시 surface.
+
+---
+
+## v0.6.0
 
 **릴리스일**: 2026년 5월
 

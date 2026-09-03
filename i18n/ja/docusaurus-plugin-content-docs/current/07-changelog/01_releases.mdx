@@ -7,147 +7,391 @@ sidebar_label: リリースノート
 
 # リリースノート
 
-Klleon Ondevice SDKのバージョンごとの変更点です。
+Klleon Ondevice SDK のバージョンごとの変更点です。
 
 ---
 
-## v0.5.0 (Latest)
+## v0.12.0 (Latest)
 
-**リリース日**: 2026年4月
-
-### Breaking Changes
-- `pauseVideo()` / `resumeVideo()` / `isVideoPaused()` → `enterStandby()` / `exitStandby()` / `isStandby()` にリネーム
-- `registerKeywords()` / `clearKeywords()` / `keywordDetected` → `registerWakewords()` / `clearWakewords()` / `wakewordDetected` にリネーム
+**リリース日**: 2026 年 8 月
 
 ### 新機能
-- 待機画面(Standby)モード：パイプライン全体のflush + タイミング再初期化で早送り/ANRを防止
-- Wake-wordマッチング：STT認識結果から登録されたキーワードを検出 → コールバック伝達（standby中のみ有効）
-- `setIdleTimeout()` / `disableIdleTimeout()`: TTS_END後の無活動時に自動待機画面進入
-- `isResponding: StateFlow<Boolean>`: アバター応答状態の追跡（PREPARING_RESPONSE ~ TTS_END）
-- `STANDBY_ENTER` イベント：自動待機画面進入時にsdkStateへ発行
+- `play()` に `useMelSpectrogram: Boolean = false` パラメータを追加しました — MEL スペクトログラムベースのリップシンクパイプラインへ切り替えるモードスイッチです。`false`（デフォルト）は従来の AUDIO_FEATURE 経路のままです。
+- キャッシュ発話 API を追加しました: `speakCachedAsset(assetName: String): Result<Int>`、`speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>`、`isCachedSpeechReady(): Boolean`。あらかじめ用意した PCM（16kHz モノラル int16 LE）をサーバー往復なしで即座に発話します。`play(useMelSpectrogram = true)` のセッションでのみ動作します。
+- `RuntimeConfig.audioNonStreaming` を追加しました — 発話オーディオを最後まで受信してから一括再生します（デフォルト `true`）。途中のバッファアンダーランによる途切れがなくなる一方、最初の音までの遅延は長くなります。`false` にすると従来のストリーミング再生になります。
+- サーバー PCM→MEL のライブ発話: サーバーが送信した PCM を単一の ordered ストリームとして消費し、接続世代（cid）ベースのガードにより再接続時に前セッションの残存イベントを遮断します。
+- セッション計測の統合: `SESSION_VITALS` の単一イベントでネットワーク・デバイスの状態を New Relic に記録します（回線速度測定は 3 分周期、1.5MB 上限）。
+
+### 動作変更
+- **オーディオ再生がノンストリーミングのデフォルト** になりました。API の変更なしに、アップグレードするだけで再生方式が変わります。従来の動作が必要な場合は `RuntimeConfig.audioNonStreaming = false` を設定してください。
+- `play()` へのデフォルトパラメータ追加は **ソース互換ですがバイナリ非互換** です。利用側アプリの再コンパイルが必要です（Gradle の依存関係更新時に自動的に行われます）。
 
 ### バグ修正
-- VideoDecoder `stop()` race condition (pauseToken/stopTokenの順序逆転)
-- ASYNCモードconsumerがpauseTokenを未確認
-- AudioPlayer `pause()` / `resume()` 追加（ビデオのみ停止してオーディオが継続再生される問題）
+- 発話中断（`sendStopSpeech`）と新規発話の開始が重なる際の競合を遮断しました — stop epoch の導入、中断後のオーディオ再投入の遮断、クリーンアップ順序の修正を行いました。
+- WebSocket 再接続時に、以前のソケットの stale メッセージ・コールバックが新しいセッションの状態を汚染する問題を二重に防御しました。接続終了シグナル（Disconnected）は遅延到着でも必ず通知されます。
+- 発話中に接続が切断され復旧した際、最初の発話が `reset()`/`TTS_START` なしで進行し、前の発話の残存オーディオと混ざる問題を修正しました。
+
+---
+
+## v0.11.2
+
+**リリース日**: 2026 年 7 月
+
+### 新機能
+- ウェイクワードの挨拶に対する STT バイアス — Azure `PhraseListGrammar` により登録済み挨拶の認識率を改善しました。
+
+### バグ修正
+- v0.11.1 の post-speech ガード（TTS_END 後 800ms）をロールバックしました。通常の発話開始まで遅延させる副作用が確認されたためです。
+- `PhraseListGrammar` のハンドルリークを防止しました。
+
+---
+
+## v0.11.1
+
+**リリース日**: 2026 年 7 月
+
+### バグ修正
+- AI の発話終了直後に続けて話したユーザー音声の tail が STT に漏れ、次のターンを自動的に開始してしまう問題を修正しました。
+- 待機画面への進入時にマイクキャプチャを再開するようにしました — マイク OFF から復帰するとウェイクワードが検出されない問題を修正しました。
+
+---
+
+## v0.11.0
+
+**リリース日**: 2026 年 7 月
+
+### 新機能
+- `chat()` に `sessionId: String?` パラメータを追加しました — 会話単位のマルチターン文脈キーです。1 つの会話（来訪者）の開始時に UUID を生成し、その会話のすべての `chat()` 呼び出しに同じ値を渡し、会話終了（無操作/standby）時に破棄・再生成します。`null` の場合、サーバーは履歴なしの単発として応答します（後方互換）。
+- `ChatRequest` に nullable な `session_id` フィールドを追加しました。401 リトライ時も同じ `sessionId` を維持し、会話の文脈を保持します。
+
+---
+
+## v0.10.3
+
+**リリース日**: 2026 年 6 月
+
+### 新機能
+- `avatarState: StateFlow<AvatarState>`: アバターの発話ライフサイクル状態を型付き Flow として公開します。汎用的な `sdkState` 文字列ストリームから発話状態を分離します。
+- `AvatarState` enum を追加しました: `IDLE`（待機）/ `PREPARING`（応答準備中）/ `SPEAKING`（発話中）。
+
+### 改善
+- `isResponding` を `avatarState != IDLE` の派生として再構成しました（boolean の動作は同一）。
+
+---
+
+## v0.10.2
+
+**リリース日**: 2026 年 6 月
+
+### 新機能
+- `setSttAutoDetect(languages)`: 多言語の自動認識（言語識別） — 言語選択の待機画面などで複数言語を同時に受信します。Azure AtStart LID ベース（ko/en/ja）。特定の言語で `sendChangeLanguage` を呼び出すと自動的に解除されます。
+- `setWakewordMatching(enabled)`: ウェイクワードマッチングの有効/無効を切り替えます。
+- `SttProvider.setAutoDetectLanguages()` の契約を追加しました（デフォルトは no-op）。
+
+---
+
+## v0.10.1
+
+### バグ修正 / 安定性
+- 一部の端末（低価格 TV SoC など）でハードウェアビデオデコーダーが固着すると `createDecoderByType` が永久にブロックされ、初期化が無限ロードになる問題を防御しました — コーデック生成ウォッチドッグにより固着を検知した時点で即座に失敗させます。
+- mp4→YUV 変換の失敗を握りつぶさず `onError` に伝播するようにしました（偽の成功/壊れたアバターの防止）。
+
+API の変更はありません。
+
+---
+
+## v0.10.0
+
+**リリース日**: 2026 年 6 月
+
+### Breaking Changes（STT SPI）
+- `SttProvider` の契約を再定義しました: `startSession`/`endSession`/`release`/`onServerEvent` → `connect`/`disconnect`/`close`/`setEventSink`/`updateToken`。
+- `SttProviderFactory`: `createDefault`/`getById` → `createDefaultOrNull`。
+- `SttServerEvent`・`VoiceServerBridge` を削除し、`SttProviderEvent`・`SttSessionStatus`・`SttException`・`SttTokenProvider` を新設しました。
+- カスタム STT プロバイダを実装している場合のみ影響します。同梱の Azure プロバイダを使用している場合は影響ありません。
+
+### 新機能
+- `playRecoveryNotice()`: STT 復旧中の案内発話。
+- `ResourceManager.loadRecoveryNotice()` / `copyRecoveryNotice()`。
+
+### 改善
+- STT の 24/7 安定化: 共通の `SttSessionSupervisor` へのリファクタ — 単一コンシューマ（アクター）+ epoch ガードによる並行性の安定化、非認証系キャンセルの自動再接続 + バックオフ（30 秒上限）、403 認証失敗（APP_DISABLED/EXPIRED）の分離処理、changeLanguage のメールボックスルーティング（ANR 防止）。
+
+---
+
+## v0.9.4
+
+**リリース日**: 2026 年 6 月
+
+### バグ修正
+- `sendStopSpeech` 中の FaceExtractor cvtColor empty-Mat クラッシュを防御しました。
+
+API の変更はありません。
+
+---
+
+## v0.9.3
+
+**リリース日**: 2026 年 6 月
+
+### バグ修正
+- アバターの発話がマイクへ回り込むハウリング（エコー）を遮断しました。発話（＋スピーカーの残響）区間はマイク入力を STT へ送らず、その区間の STT 結果も破棄します（二重防御）。
+- CI ビルド: 大文字小文字のみ異なるファイルによるビルド失敗を修正しました。
+
+API の変更はありません。
+
+---
+
+## v0.9.2
+
+**リリース日**: 2026 年 6 月
+
+### バグ修正
+- YUV ネイティブバッファの use-after-free クラッシュ（cvtColor SIGSEGV）を修正しました。
+- producer の join に timeout ガードを追加しました（teardown 時の ANR 防止）。
+- バッファ世代（generation）ガードにより、アバター切り替え時のセッション混同を遮断しました。
+- Chat レスポンス body のログをリリースビルドでリダクションしました（PII / New Relic への流出防止）。
+
+### 改善
+- ChatClient の `OkHttpClient` を共有シングルトン化しました（コネクション/スレッドプールの再利用）。
+- GitHub Actions のタグ自動デプロイへ移行しました。
+
+---
+
+## v0.9.1
+
+**リリース日**: 2026 年 6 月
+
+### 改善
+- Chat API のエラー診断ログを強化しました: `parseServerError` で非認証エラーの code/message を抽出し、リクエスト/成功/失敗のログに http・code・body の詳細を出力します。
+- `ChatRequest` / `ChatResponse` / `DataDto` / `BlockDto` の ProGuard keep ルールを追加しました。
+
+---
+
+## v0.9.0
+
+**リリース日**: 2026 年 6 月
+
+### 新機能
+- biz-backend の `/api/v1/chat` SDK API（`sdk.chat()`）を追加しました。アプリはテキスト/画像の blocks のみを受け取り、HTTP・認証・パースは SDK が処理します。
+
+---
+
+## v0.8.1
+
+**リリース日**: 2026 年 5 月
+
+### バグ修正
+- Fat AAR の R8 minify 時に新規公開 API が難読化される回帰を修正しました。外部利用者が `SttMode`、`wakeword.WakewordResult`、`KlleonOndeviceSdk.Companion.isPlaying()` などを正常に import / 呼び出しできます。
+
+### ProGuard keep ルールの補強
+- `io.klleon.ondevice.SttMode`
+- `io.klleon.ondevice.wakeword.**`（WakewordResult, WakewordMatcher）
+- `io.klleon.ondevice.KlleonOndeviceSdk$Companion`
+
+API の変更はありません。v0.8.0 の利用者は依存バージョンを `0.8.1` に置き換えることを推奨します。
+
+---
+
+## v0.8.0
+
+**リリース日**: 2026 年 5 月
+
+### Breaking Changes
+- `KlleonOndeviceSdk.voiceRecognitionMode` のデフォルトが `DISCRETE` → `ALWAYS_ON` になりました。`play()` 直後にマイクセッションが自動開始されます。DISCRETE のフローを維持する場合は、`play()` の呼び出し前に `sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE` を明示してください。
+- `KlleonOndeviceSdk.play()` の `sttMode` デフォルトが `AUTO_SEND_TO_SERVER` → `STT_ONLY` になりました。STT の結果はサーバーへ自動送信されず、アプリが `sdkState` の `STT_RESULT` chat_type を受信したうえで `sendMessage()` を明示的に呼び出す必要があります。自動送信を維持する場合は `sttMode = SttMode.AUTO_SEND_TO_SERVER` を明示してください。
+- `startVoiceRecognition()` は `@Deprecated` — DISCRETE モード専用です。`startAlwaysOnListening()` の使用を推奨します。v0.9.0 以降で削除予定です。
+- `SttMode.AUTO_SEND_TO_SERVER` は `@Deprecated` — `STT_ONLY` の使用を推奨します。v0.9.0 以降で削除予定です。
+
+### マイグレーション
+詳細な手順は [ガイド → v0.6.0 → v0.8.0 マイグレーション](/category/04-guides) を参照してください。
+
+### ビルドの変更
+- `sttProvider` のデフォルトが `agora` → `azure` になりました（Azure Direct STT を推奨）
+- debug の `ATTEST_BASE_URL` を dev EKS（`https://dev.ondevice-biz.klleon.io`）に統一しました。社内 LAN の dev マシンで検証する場合は、ビルドスクリプト内のコメント行と一時的に差し替えてください。
+
+---
+
+## v0.7.0
+
+**リリース日**: 2026 年 5 月
+
+### Breaking Changes
+- `AgoraSttProvider` は `@Deprecated` — Azure Direct STT を推奨します。Agora Relay STT は将来的に削除予定です。
+- `VoiceServerBridge.sendRecognizedText()` を削除しました — STT 結果のサーバー送信分岐は `SttSessionManager` に統合されました。外部からの呼び出し元はありませんでした（SDK 内部 API）。
+
+### 新機能
+- **`SttMode` enum の導入**（`STT_ONLY` / `AUTO_SEND_TO_SERVER`） — `play()` の新規パラメータです。本バージョンのデフォルトは `AUTO_SEND_TO_SERVER` です（v0.8.0 で `STT_ONLY` に変更）。
+- **AppToken V2 attestation**: challenge-token → app-attest の OkHttp フロー → `app_secret_key` の 24 時間キャッシュ（`SecureAttestStorage`）。`ResourceManager.init()` の内部で `AppToken.initialize()` が自動的に呼び出されます。
+- `ChatType.STT_AUTH_ERROR` / `SignalType.STT_AUTH_ERROR` を新設しました — STT トークン V2 の認証失敗（`STT_ERROR` から分離）。
+- モデル復号鍵を V1 の cert hash から V2 の `app_secret_key` へ移行しました（`ServerKeyProvider` を新設、`SignatureBasedKeyProvider` を削除）。
+
+### 変更点
+- STT トークン取得時に `X-App-Secret-Key` ヘッダーを使用し、401 では 1 回リトライ、403 は即座に surface します。
+
+---
+
+## v0.6.0
+
+**リリース日**: 2026 年 5 月
+
+### 新機能
+- **Dual YUV face crops のランタイム適用**（LIPSYNC-007）: `ResourceManager.init()` に `faceCropYuvFileName`、`faceCropYuvMetaFileName` パラメータを追加しました（いずれもデフォルト `""` — 後方互換）。事前抽出済みの face crop YUV がある場合は `warpAffine` をスキップし、推論経路を短縮します。
+- `ResourceManager` の public プロパティを追加しました: `faceCropYuvBuffer`、`faceCropYuvPath`、`faceCropYuvMetaPath`
+
+### 変更点
+- `VideoDecoder.decodeVideo` のコールバックシグネチャを拡張しました: `(rgba, faceFrame, frame, total)`（以前は `(rgba, frame, total)`） — 内部変更であり、公開 API への影響はありません
+- リップシンクのキャリブレーションツール（`tools/lipsync_quality/`）を整備しました
+
+---
+
+## v0.5.1
+
+**リリース日**: 2026 年 4 月
+
+### 変更点
+- リップシンク品質の改善（yuna/sony アバターのキャリブレーション）
+- （sdk-docs の同期漏れ — v0.6.0 に含めて整理）
+
+---
+
+## v0.5.0
+
+**リリース日**: 2026 年 4 月
+
+### Breaking Changes
+- `pauseVideo()` / `resumeVideo()` / `isVideoPaused()` を `enterStandby()` / `exitStandby()` / `isStandby()` にリネームしました
+- `registerKeywords()` / `clearKeywords()` / `keywordDetected` を `registerWakewords()` / `clearWakewords()` / `wakewordDetected` にリネームしました
+
+### 新機能
+- 待機画面（Standby）モード: パイプライン全体の flush + タイミング再初期化により早送り/ANR を防止します
+- ウェイクワードマッチング: STT の認識結果から登録済みキーワードを検出し、コールバックを通知します（standby 中のみ有効）
+- `setIdleTimeout()` / `disableIdleTimeout()`: TTS_END 後の無操作で自動的に待機画面へ入ります
+- `isResponding: StateFlow<Boolean>`: アバターの応答状態を追跡します（PREPARING_RESPONSE 〜 TTS_END）
+- `STANDBY_ENTER` イベント: 自動待機画面への進入時に sdkState から発行されます
+
+### バグ修正
+- VideoDecoder `stop()` の競合状態（pauseToken/stopToken の順序逆転）
+- ASYNC モードの consumer が pauseToken を確認していなかった問題
+- AudioPlayer に `pause()` / `resume()` を追加（ビデオのみ停止しオーディオが再生され続ける問題の修正）
 
 ---
 
 ## v0.4.0
 
-**リリース日**: 2026年4月
+**リリース日**: 2026 年 4 月
 
 ### Breaking Changes
-- `play()`, `finish()` → `suspend fun` に変更（コルーチン内での呼び出しが必要）
-- `KlleonOndeviceSdk.stopping` companionプロパティ削除 → `isStopping` インスタンスプロパティに置換
+- `play()`、`finish()` を `suspend fun` に変更しました（コルーチン内から呼び出す必要があります）
+- `KlleonOndeviceSdk.stopping` companion プロパティを削除し、`isStopping` インスタンスプロパティに置き換えました
 
 ### 変更点
-- `BaseElement.stop()` runBlocking削除：`withTimeout(2s)` + 強制cancelフォールバック
-- `stopMutex` 導入：`stop()` の同時進入防御（ANR/デッドロック/double release防止）
-- `awaitFinish()` 追加：高速再進入(finish → play)時のリソース競合防止
-- 未使用の `bridgeJob` コード削除
+- `BaseElement.stop()` から runBlocking を削除: `withTimeout(2s)` + 強制 cancel のフォールバック
+- `stopMutex` を導入: `stop()` の同時進入を防御（ANR/デッドロック/double release の防止）
+- `awaitFinish()` を追加: 高速な再入（finish → play）時のリソース競合を防止
+- 未使用の `bridgeJob` コードを削除
 
 ---
 
 ## v0.3.6
 
-**リリース日**: 2026年4月
+**リリース日**: 2026 年 4 月
 
 ### 変更点
-- `ResourceManager.init()` に `avatarId` パラメータ追加
-- YUVバッファライフサイクル分離：同一アバター再進入時にバッファ再利用（0ms）
-- 異なるアバター切り替え時に3秒クールダウン（ローエンドTV SoC OOM防御）
-- `finish()` 時にバッファ維持（`resetState`）+ アプリ終了時に完全解放（`deinit`）
-- `onTrimMemory` / `onLowMemory` ベースのバックグラウンドメモリ自動解放
-- `init()` 内部のIOコルーチン転換（Mainスレッドブロッキング削除）
+- `ResourceManager.init()` に `avatarId` パラメータを追加しました
+- YUV バッファのライフサイクルを分離: 同一アバターへの再入時にバッファを再利用します（0ms）
+- 別アバターへの切り替え時に 3 秒のクールダウン（低スペック TV SoC の OOM 防御）
+- `finish()` 時はバッファを保持（`resetState`）し、アプリ終了時に完全解放（`deinit`）
+- `onTrimMemory` / `onLowMemory` に基づくバックグラウンドメモリの自動解放
+- `init()` の内部を IO コルーチンへ移行（メインスレッドのブロッキングを排除）
 
 ---
 
 ## v0.3.5
 
-**リリース日**: 2026年4月
+**リリース日**: 2026 年 4 月
 
 ### 変更点
-- RAW YUVビデオデコーディングパイプライン実装（MP4→YUV事前変換）
-- NV12/I420カラーフォーマット自動検出および変換
-- Activityライフサイクルベースのネイティブメモリ解放
-- Androidメモリモニタリングスキル追加
+- RAW YUV ビデオデコードパイプラインを実装しました（MP4→YUV の事前変換）
+- NV12/I420 カラーフォーマットの自動検出と変換
+- Activity ライフサイクルに基づくネイティブメモリの解放
+- Android メモリモニタリングのスキルを追加
 
 ---
 
 ## v0.3.4
 
-**リリース日**: 2026年3月
+**リリース日**: 2026 年 3 月
 
 ### 変更点
-- StyleEncoderランタイム推論無効化（.style事前ロード時にモデルロードをスキップ）
-- SdkInitializer.validate() 呼び出し復元
-- サンプルアプリのリソースダウンロードフロー改善
+- StyleEncoder のランタイム推論を無効化（.style の事前読み込み時はモデルロードをスキップ）
+- SdkInitializer.validate() の呼び出しを復元
+- サンプルアプリのリソースダウンロードフローを改善
 
 ---
 
 ## v0.3.3
 
-**リリース日**: 2026年3月
+**リリース日**: 2026 年 3 月
 
 ### 変更点
-- 事前計算された.styleファイルロード（StyleFileLoader追加）
-- style_encoder_float32.binアセット削除（約35MB AARサイズ削減）
-- play() パラメータを内部変数化（ttsModelUse, mmapEnabled, tokenServerUrl削除）
-- WebSocket音声シグナル追加（SPEECH_START, SPEECH_END, STOP_RESPONSE_MESSAGE）
-- ResourceManager .styleファイルダウンロードサポート
+- 事前計算された .style ファイルの読み込み（StyleFileLoader を追加）
+- style_encoder_float32.bin アセットを削除（AAR サイズを約 35MB 削減）
+- play() のパラメータを内部変数化（ttsModelUse、mmapEnabled、tokenServerUrl を削除）
+- WebSocket の音声シグナルを追加（SPEECH_START、SPEECH_END、STOP_RESPONSE_MESSAGE）
+- ResourceManager の .style ファイルダウンロード対応
 
 ---
 
 ## v0.3.2
 
-**リリース日**: 2026年3月
+**リリース日**: 2026 年 3 月
 
 ### 変更点
-- Oboe入力フォーマット Float → I16 変更（USBマイク互換性確保）
-- I16 → Float32 ランタイム変換ロジック追加
-- publish.sh STTプロバイダー別デプロイサポート
+- Oboe の入力フォーマットを Float → I16 に変更（USB マイクの互換性確保）
+- I16 → Float32 のランタイム変換ロジックを追加
+- publish.sh の STT プロバイダ別デプロイ対応
 
 ---
 
 ## v0.3.1
 
-**リリース日**: 2026年3月
+**リリース日**: 2026 年 3 月
 
 ### 変更点
-- ALWAYS_ON音声モード追加（play()後に自動開始、セッション維持）
-- CONTINUOUSモード削除およびデッドコード整理
-- Azure STTの不要なSTART_VOICE/END_VOICEシグナル削除
+- ALWAYS_ON 音声モードを追加（play() 後に自動開始し、セッションを維持）
+- CONTINUOUS モードを削除し、デッドコードを整理
+- Azure STT の不要な START_VOICE/END_VOICE シグナルを削除
 
 ---
 
 ## v0.2.18
 
-**リリース日**: 2026年3月
+**リリース日**: 2026 年 3 月
 
 ### 変更点
-- Azure STTトークンサーバー連携
+- Azure STT トークンサーバーとの連携
 
 ---
 
 ## v0.2.17
 
-**リリース日**: 2026年3月
+**リリース日**: 2026 年 3 月
 
 ### 新機能
-- 音声認識状態通知（`STT_STATUS`）追加 — トークン待機/再接続/復旧完了状態をアプリに通知
+- 音声認識の状態通知（`STT_STATUS`）を追加 — トークン待ち/再接続/復旧完了の状態をアプリへ通知します
 
 ### バグ修正
-- 一部デバイスでのオーディオ入力ストリームオープン失敗を修正
-- `play()` 関数に `mmapEnabled` パラメータ追加
+- 一部デバイスでオーディオ入力ストリームのオープンに失敗する問題を修正しました
+- `play()` 関数に `mmapEnabled` パラメータを追加しました
 
 ---
 
 ## v0.2.16
 
-### 改善点
-- STT中間結果（`STT_PARTIAL`）サポート追加
-- SDK配布方式をバンドルAARに変更（依存関係統合）
+### 改善
+- STT の中間結果（`STT_PARTIAL`）に対応しました
+- SDK の配布方式をバンドル AAR に変更しました（依存関係の統合）
 
 ---
 
@@ -155,21 +399,21 @@ Klleon Ondevice SDKのバージョンごとの変更点です。
 
 ### 新機能
 - 音声認識の改善
-- アバター発話中の音声認識自動一時停止
+- アバターの発話中は音声認識を自動的に一時停止
 
 ---
 
 ## v0.2.14
 
-### 改善点
-- USBマイク互換性改善（MMAPデフォルト無効化）
+### 改善
+- USB マイクの互換性を改善（MMAP をデフォルト無効化）
 
 ---
 
 ## v0.2.13
 
-### 改善点
-- GPU互換性修正
+### 改善
+- GPU 互換性の修正
 
 ---
 
@@ -177,22 +421,22 @@ Klleon Ondevice SDKのバージョンごとの変更点です。
 
 ### 新機能
 - 自動無音検出
-- 低遅延オーディオ入力
-- USBマイク自動検出および切り替え
+- 低遅延のオーディオ入力
+- USB マイクの自動検出と切り替え
 
 ---
 
 ## v0.2.11
 
 ### バグ修正
-- 画面回転時のレンダリング段差（staircase artifact）修正
+- 画面回転時のレンダリングの段差（staircase artifact）を修正しました
 
 ---
 
 ## v0.2.10
 
 ### 新機能
-- `sendStopSpeech()`: アバター発話中断機能
+- `sendStopSpeech()`: アバターの発話中断機能
 - `sendChangeLanguage()`: 会話中の言語変更機能
 
 ---
@@ -200,116 +444,117 @@ Klleon Ondevice SDKのバージョンごとの変更点です。
 ## v0.2.9
 
 ### 新機能
-- 多言語サポート（韓国語/日本語/English）
-- Android TV UI改善
+- 多言語対応（韓国語/日本語/English）
+- Android TV の UI 改善
 
 ---
 
 ## v0.2.8
 
 ### 新機能
-- Android TV 270度回転サポート
-- キャラクター別 `characterId` 動的伝達
+- Android TV の 270 度回転対応
+- キャラクターごとの `characterId` の動的な受け渡し
 
 ---
 
 ## v0.2.7
 
-### 改善点
-- USBマイクデバイス選択の改善
+### 改善
+- USB マイクのデバイス選択を改善
 
 ---
 
 ## v0.2.6
 
 ### 新機能
-- `sendChangeLanguage()` API追加
-- STT結果処理の改善
+- `sendChangeLanguage()` API を追加
+- STT 結果の処理を改善
 
 ---
 
 ## v0.2.5
 
 ### 新機能
-- 低遅延マイク録音
-- USBマイク自動切り替え
+- 低遅延のマイク録音
+- USB マイクの自動切り替え
 - 無音検出
-- WebSocketバイナリ送信
+- WebSocket のバイナリ送信
 
 ---
 
 ## v0.2.4
 
 ### 新機能
-- `play()` API変更：`sdkKey`、`characterId`、`language` ベースに転換
+- `play()` API の変更: `sdkKey`、`characterId`、`language` ベースへ移行
 
 ### バグ修正
-- Sony TV / Android 8.1 互換性修正
-- 長時間使用時の安定性改善
+- Sony TV / Android 8.1 の互換性修正
+- 長時間使用時の安定性を改善
 
 ---
 
 ## v0.2.3
 
-**リリース日**: 2025年12月
+**リリース日**: 2025 年 12 月
 
-### 改善点
-- セキュリティ強化
+### 改善
+- セキュリティの強化
 
 ---
 
 ## v0.2.2
 
-**リリース日**: 2025年11月
+**リリース日**: 2025 年 11 月
 
-### 改善点
-- AI推論パフォーマンス最適化
+### 改善
+- AI 推論性能の最適化
 
 ---
 
 ## v0.2.1
 
-**リリース日**: 2025年10月
+**リリース日**: 2025 年 10 月
 
 ### バグ修正
-- サーバー接続安定性の改善
-- WebSocket再接続ロジック強化
+- サーバー接続の安定性を改善
+- WebSocket 再接続ロジックを強化
 
 ---
 
 ## v0.2.0
 
-**リリース日**: 2025年9月
+**リリース日**: 2025 年 9 月
 
-### 改善点
-- モデルセキュリティ強化
-- ビデオ処理パフォーマンス最適化
-- GPUアクセラレーションパフォーマンス向上
+### 改善
+- モデルセキュリティの強化
+- ビデオ処理性能の最適化
+- GPU アクセラレーション性能の向上
 
 ---
 
-## v0.1.x (初期バージョン)
+## v0.1.x（初期バージョン）
 
-### コア機能
-- AIベースのリアルタイムビデオ処理
-- リップシンク (Lip Sync) 機能
-- WebSocketリアルタイム通信
+### 主な機能
+- AI ベースのリアルタイムビデオ処理
+- リップシンク（Lip Sync）機能
+- WebSocket によるリアルタイム通信
 
-### サポート環境
-- Android 8.0+ (API 26)
+### 対応環境
+- Android 8.0+（API 26）
 - arm64-v8a, armeabi-v7a
 
 
 ---
 
-## サポートバージョン
+## サポート対象バージョン
 
-| バージョン | ステータス | 備考 |
+| バージョン | 状態 | 備考 |
 |------|------|------|
-| 0.5.x | アクティブサポート | 最新 |
+| 0.6.x | アクティブサポート | 最新 |
+| 0.5.x | アクティブサポート | |
 | 0.4.x | アクティブサポート | |
 | 0.3.x | アクティブサポート | |
 | 0.2.x | メンテナンス | |
-| 0.1.x | サポート終了 | 2025年Q1終了 |
+| 0.1.x | サポート終了 | 2025 年 Q1 に終了 |
 
-最新バージョンの使用を推奨します。
+最新バージョンのご利用を推奨します。

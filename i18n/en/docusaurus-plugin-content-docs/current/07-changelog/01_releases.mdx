@@ -7,29 +7,273 @@ sidebar_label: Release Notes
 
 # Release Notes
 
-Version-specific changes for the Klleon Ondevice SDK.
+Changes in the Klleon Ondevice SDK by version.
 
 ---
 
-## v0.5.0 (Latest)
+## v0.12.0 (Latest)
+
+**Release date**: August 2026
+
+### New Features
+- Added the `useMelSpectrogram: Boolean = false` parameter to `play()` — a mode switch that moves to the MEL-spectrogram-based lip-sync pipeline. `false` (the default) keeps the existing AUDIO_FEATURE path.
+- Added the cached speech API: `speakCachedAsset(assetName: String): Result<Int>`, `speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>`, `isCachedSpeechReady(): Boolean`. Plays pre-prepared PCM (16 kHz mono int16 LE) instantly without a server round trip. Works only in a `play(useMelSpectrogram = true)` session.
+- Added `RuntimeConfig.audioNonStreaming` — plays the speech audio at once after receiving all of it (default `true`). Dropouts caused by mid-speech buffer underruns disappear, at the cost of a longer delay before the first sound. Set it to `false` for the previous streaming playback.
+- Server PCM→MEL live speech: consumes the PCM sent by the server as a single ordered stream and blocks leftover events from a previous session on reconnect via connection-generation (cid) guards.
+- Unified session instrumentation: network and device state are recorded in New Relic through the single `SESSION_VITALS` event (line-speed measurement every 3 minutes, capped at 1.5 MB).
+
+### Behavior Changes
+- **Audio playback is now non-streaming by default.** The playback behavior changes simply by upgrading, with no API change. If you need the previous behavior, set `RuntimeConfig.audioNonStreaming = false`.
+- Adding a default parameter to `play()` is **source-compatible but binary-incompatible**. Consumer apps must be recompiled (which happens automatically when the Gradle dependency is updated).
+
+### Bug Fixes
+- Blocked the race between interrupting speech (`sendStopSpeech`) and starting a new one — introduced a stop epoch, blocked audio re-queuing after interruption, and corrected the cleanup order.
+- Double defense against stale messages and callbacks from a previous socket polluting the new session state on WebSocket reconnect. The connection-closed signal (Disconnected) is always delivered even when it arrives late.
+- Fixed an issue where, after a disconnect and recovery during speech, the first utterance proceeded without `reset()`/`TTS_START` and mixed with leftover audio from the previous utterance.
+
+---
+
+## v0.11.2
+
+**Release date**: July 2026
+
+### New Features
+- Wake-word greeting STT biasing — improved recognition of registered greetings using Azure `PhraseListGrammar`.
+
+### Bug Fixes
+- Rolled back the post-speech guard (800 ms after TTS_END) introduced in v0.11.1. It was confirmed to have the side effect of delaying the start of normal speech.
+- Prevented a `PhraseListGrammar` handle leak.
+
+---
+
+## v0.11.1
+
+**Release date**: July 2026
+
+### Bug Fixes
+- Fixed an issue where the tail of user speech spoken right after the AI finished talking leaked into STT and automatically started the next turn.
+- Restart microphone capture when entering standby — fixed the issue where wake words were not detected after returning from a microphone-off state.
+
+---
+
+## v0.11.0
+
+**Release date**: July 2026
+
+### New Features
+- Added the `sessionId: String?` parameter to `chat()` — a multi-turn context key per conversation. Create a UUID when a conversation (visitor) starts, pass the same value to every `chat()` call in that conversation, and discard/regenerate it when the conversation ends (inactivity/standby). With `null`, the server responds without history as a one-off (backward compatible).
+- Added the nullable `session_id` field to `ChatRequest`. The same `sessionId` is kept on 401 retries so conversation context is preserved.
+
+---
+
+## v0.10.3
+
+**Release date**: June 2026
+
+### New Features
+- `avatarState: StateFlow<AvatarState>`: exposes the avatar speech lifecycle state as a typed Flow. Separates the speech state from the general-purpose `sdkState` string stream.
+- Added the `AvatarState` enum: `IDLE` / `PREPARING` (preparing a response) / `SPEAKING`.
+
+### Improvements
+- Reimplemented `isResponding` as a derivation of `avatarState != IDLE` (boolean behavior unchanged).
+
+---
+
+## v0.10.2
+
+**Release date**: June 2026
+
+### New Features
+- `setSttAutoDetect(languages)`: multilingual automatic recognition (language identification) — receive multiple languages simultaneously, for example on a language selection standby screen. Based on Azure AtStart LID (ko/en/ja). Automatically disabled when `sendChangeLanguage` is called with a specific language.
+- `setWakewordMatching(enabled)`: toggles wake-word matching on/off.
+- Added the `SttProvider.setAutoDetectLanguages()` contract (default no-op).
+
+---
+
+## v0.10.1
+
+### Bug Fixes / Stability
+- Defended against the issue where, on some devices (such as low-end TV SoCs), a stuck hardware video decoder caused `createDecoderByType` to block permanently and initialization to hang — a codec-creation watchdog now fails fast when a hang is detected.
+- mp4→YUV conversion failures are no longer swallowed and are propagated through `onError` (preventing false success/broken avatars).
+
+No API changes.
+
+---
+
+## v0.10.0
+
+**Release date**: June 2026
+
+### Breaking Changes (STT SPI)
+- Redefined the `SttProvider` contract: `startSession`/`endSession`/`release`/`onServerEvent` → `connect`/`disconnect`/`close`/`setEventSink`/`updateToken`.
+- `SttProviderFactory`: `createDefault`/`getById` → `createDefaultOrNull`.
+- Removed `SttServerEvent` and `VoiceServerBridge`; added `SttProviderEvent`, `SttSessionStatus`, `SttException`, and `SttTokenProvider`.
+- Affects you only if you implemented a custom STT provider. No impact when using the bundled Azure provider.
+
+### New Features
+- `playRecoveryNotice()`: guidance speech while STT is recovering.
+- `ResourceManager.loadRecoveryNotice()` / `copyRecoveryNotice()`.
+
+### Improvements
+- STT 24/7 stabilization: common `SttSessionSupervisor` refactor — concurrency stabilized with a single consumer (actor) + epoch guards, self-reconnect with backoff (30 s cap) for non-auth cancellations, separate handling of 403 authentication failures (APP_DISABLED/EXPIRED), and changeLanguage mailbox routing (ANR prevention).
+
+---
+
+## v0.9.4
+
+**Release date**: June 2026
+
+### Bug Fixes
+- Guarded against the FaceExtractor cvtColor empty-Mat crash during `sendStopSpeech`.
+
+No API changes.
+
+---
+
+## v0.9.3
+
+**Release date**: June 2026
+
+### Bug Fixes
+- Blocked howling (echo) caused by the avatar's speech feeding back into the microphone. Microphone input is not sent to STT during speech (plus speaker reverberation), and STT results from that period are dropped as well (double defense).
+- CI build: fixed a build failure caused by files differing only in case.
+
+No API changes.
+
+---
+
+## v0.9.2
+
+**Release date**: June 2026
+
+### Bug Fixes
+- Fixed a YUV native buffer use-after-free crash (cvtColor SIGSEGV).
+- Added a timeout guard to the producer join (preventing teardown ANR).
+- Blocked session confusion when switching avatars using buffer generation guards.
+- Redacted chat response body logging in release builds (preventing PII / New Relic leakage).
+
+### Improvements
+- Made the ChatClient `OkHttpClient` a shared singleton (reuses connections/thread pools).
+- Switched to automatic tag-based deployment in GitHub Actions.
+
+---
+
+## v0.9.1
+
+**Release date**: June 2026
+
+### Improvements
+- Strengthened Chat API error diagnostics logging: `parseServerError` extracts the code/message of non-auth errors, and request/success/failure logs include detailed http, code, and body information.
+- Added ProGuard keep rules for `ChatRequest` / `ChatResponse` / `DataDto` / `BlockDto`.
+
+---
+
+## v0.9.0
+
+**Release date**: June 2026
+
+### New Features
+- Added the biz-backend `/api/v1/chat` SDK API (`sdk.chat()`). The app receives only the text/image blocks while the SDK handles HTTP, authentication, and parsing.
+
+---
+
+## v0.8.1
+
+**Release date**: May 2026
+
+### Bug Fixes
+- Fixed a regression where newly public APIs were obfuscated during Fat AAR R8 minification. External users can now import/call `SttMode`, `wakeword.WakewordResult`, `KlleonOndeviceSdk.Companion.isPlaying()`, and others normally.
+
+### Additional ProGuard Keep Rules
+- `io.klleon.ondevice.SttMode`
+- `io.klleon.ondevice.wakeword.**` (WakewordResult, WakewordMatcher)
+- `io.klleon.ondevice.KlleonOndeviceSdk$Companion`
+
+No API changes. v0.8.0 users are advised to simply bump the dependency version to `0.8.1`.
+
+---
+
+## v0.8.0
+
+**Release date**: May 2026
+
+### Breaking Changes
+- `KlleonOndeviceSdk.voiceRecognitionMode` default changed from `DISCRETE` to `ALWAYS_ON`. The microphone session starts automatically right after `play()`. To keep the DISCRETE flow, set `sdk.voiceRecognitionMode = VoiceRecognitionMode.DISCRETE` explicitly before calling `play()`.
+- The `sttMode` default of `KlleonOndeviceSdk.play()` changed from `AUTO_SEND_TO_SERVER` to `STT_ONLY`. STT results are no longer sent to the server automatically; the app must call `sendMessage()` explicitly after receiving the `STT_RESULT` chat_type from `sdkState`. To keep automatic sending, specify `sttMode = SttMode.AUTO_SEND_TO_SERVER`.
+- `startVoiceRecognition()` is `@Deprecated` — DISCRETE mode only. Use `startAlwaysOnListening()` instead. Scheduled for removal in v0.9.0+.
+- `SttMode.AUTO_SEND_TO_SERVER` is `@Deprecated` — use `STT_ONLY` instead. Scheduled for removal in v0.9.0+.
+
+### Migration
+For detailed steps, see [Guides → v0.6.0 → v0.8.0 migration](/category/04-guides).
+
+### Build Changes
+- `sttProvider` default changed from `agora` to `azure` (Azure Direct STT recommended)
+- Unified the debug `ATTEST_BASE_URL` to dev EKS (`https://dev.ondevice-biz.klleon.io`). When validating against an in-house LAN dev machine, temporarily swap it with the commented line in the build script.
+
+---
+
+## v0.7.0
+
+**Release date**: May 2026
+
+### Breaking Changes
+- `AgoraSttProvider` is `@Deprecated` — Azure Direct STT is recommended. Agora Relay STT is scheduled for future removal.
+- Removed `VoiceServerBridge.sendRecognizedText()` — the branch that sends STT results to the server was consolidated into `SttSessionManager`. There were no external callers (SDK-internal API).
+
+### New Features
+- **Introduced the `SttMode` enum** (`STT_ONLY` / `AUTO_SEND_TO_SERVER`) — a new parameter of `play()`. The default in this version is `AUTO_SEND_TO_SERVER` (changed to `STT_ONLY` in v0.8.0).
+- **AppToken V2 attestation**: challenge-token → app-attest OkHttp flow → 24 h cache of `app_secret_key` (`SecureAttestStorage`). `AppToken.initialize()` is called automatically inside `ResourceManager.init()`.
+- Added `ChatType.STT_AUTH_ERROR` / `SignalType.STT_AUTH_ERROR` — STT token V2 authentication failure (separated from `STT_ERROR`).
+- Switched the model decryption key from V1 cert hash to the V2 `app_secret_key` (added `ServerKeyProvider`, removed `SignatureBasedKeyProvider`).
+
+### Changes
+- The `X-App-Secret-Key` header is used when fetching STT tokens, with one retry on 401 and immediate surfacing of 403.
+
+---
+
+## v0.6.0
+
+**Release date**: May 2026
+
+### New Features
+- **Runtime application of dual YUV face crops** (LIPSYNC-007): added the `faceCropYuvFileName` and `faceCropYuvMetaFileName` parameters to `ResourceManager.init()` (both default to `""` for backward compatibility). When pre-extracted face crop YUV is available, `warpAffine` is skipped to shorten the inference path.
+- Added public `ResourceManager` properties: `faceCropYuvBuffer`, `faceCropYuvPath`, `faceCropYuvMetaPath`
+
+### Changes
+- Extended the `VideoDecoder.decodeVideo` callback signature: `(rgba, faceFrame, frame, total)` (previously `(rgba, frame, total)`) — internal change, no public API impact
+- Reorganized the lip-sync calibration tools (`tools/lipsync_quality/`)
+
+---
+
+## v0.5.1
+
+**Release date**: April 2026
+
+### Changes
+- Improved lip-sync quality (yuna/sony avatar calibration)
+- (sdk-docs sync was missed — consolidated into v0.6.0)
+
+---
+
+## v0.5.0
 
 **Release date**: April 2026
 
 ### Breaking Changes
-- `pauseVideo()` / `resumeVideo()` / `isVideoPaused()` -> Renamed to `enterStandby()` / `exitStandby()` / `isStandby()`
-- `registerKeywords()` / `clearKeywords()` / `keywordDetected` -> Renamed to `registerWakewords()` / `clearWakewords()` / `wakewordDetected`
+- Renamed `pauseVideo()` / `resumeVideo()` / `isVideoPaused()` to `enterStandby()` / `exitStandby()` / `isStandby()`
+- Renamed `registerKeywords()` / `clearKeywords()` / `keywordDetected` to `registerWakewords()` / `clearWakewords()` / `wakewordDetected`
 
 ### New Features
-- Standby mode: Full pipeline flush + timing reinitialization to prevent fast-forward/ANR
-- Wake-word matching: Detect registered keywords from STT recognition results -> Deliver callbacks (active only during standby)
-- `setIdleTimeout()` / `disableIdleTimeout()`: Automatic standby entry after inactivity following TTS_END
-- `isResponding: StateFlow<Boolean>`: Track avatar response state (PREPARING_RESPONSE ~ TTS_END)
-- `STANDBY_ENTER` event: Emitted via sdkState on automatic standby entry
+- Standby mode: full pipeline flush + timing reinitialization to prevent fast-forwarding and ANR
+- Wake-word matching: detects registered keywords in STT results and delivers a callback (active only during standby)
+- `setIdleTimeout()` / `disableIdleTimeout()`: automatically enters standby after inactivity following TTS_END
+- `isResponding: StateFlow<Boolean>`: tracks the avatar response state (PREPARING_RESPONSE ~ TTS_END)
+- `STANDBY_ENTER` event: published through sdkState when automatic standby is entered
 
 ### Bug Fixes
 - VideoDecoder `stop()` race condition (pauseToken/stopToken order inversion)
-- ASYNC mode consumer not checking pauseToken
-- Added AudioPlayer `pause()` / `resume()` (fixed issue where only video paused while audio continued playing)
+- ASYNC mode consumer did not check pauseToken
+- Added AudioPlayer `pause()` / `resume()` (fixing the issue where only video stopped while audio kept playing)
 
 ---
 
@@ -38,13 +282,13 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: April 2026
 
 ### Breaking Changes
-- `play()`, `finish()` -> Changed to `suspend fun` (must be called within a coroutine)
-- Removed `KlleonOndeviceSdk.stopping` companion property -> Replaced with `isStopping` instance property
+- `play()` and `finish()` are now `suspend fun` (must be called from a coroutine)
+- Removed the `KlleonOndeviceSdk.stopping` companion property → replaced by the `isStopping` instance property
 
 ### Changes
-- Removed `BaseElement.stop()` runBlocking: `withTimeout(2s)` + forced cancel fallback
-- Introduced `stopMutex`: Prevents concurrent `stop()` entry (prevents ANR/deadlock/double release)
-- Added `awaitFinish()`: Prevents resource contention during quick re-entry (finish -> play)
+- Removed runBlocking from `BaseElement.stop()`: `withTimeout(2s)` + forced cancel fallback
+- Introduced `stopMutex`: guards against concurrent entry into `stop()` (preventing ANR/deadlock/double release)
+- Added `awaitFinish()`: prevents resource contention on fast re-entry (finish → play)
 - Removed unused `bridgeJob` code
 
 ---
@@ -54,12 +298,12 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: April 2026
 
 ### Changes
-- Added `avatarId` parameter to `ResourceManager.init()`
-- Separated YUV buffer lifecycle: Buffer reuse on same avatar re-entry (0ms)
-- 3-second cooldown on avatar switch (OOM defense for low-end TV SoCs)
-- Buffer retention on `finish()` (`resetState`) + complete release on app exit (`deinit`)
+- Added the `avatarId` parameter to `ResourceManager.init()`
+- Separated the YUV buffer lifecycle: buffers are reused when re-entering the same avatar (0 ms)
+- 3-second cooldown when switching to a different avatar (protecting low-end TV SoCs from OOM)
+- Buffers are kept on `finish()` (`resetState`) and fully released on app termination (`deinit`)
 - Automatic background memory release based on `onTrimMemory` / `onLowMemory`
-- IO coroutine transition within `init()` (removed Main thread blocking)
+- Moved the internals of `init()` to an IO coroutine (removing main-thread blocking)
 
 ---
 
@@ -68,10 +312,10 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: April 2026
 
 ### Changes
-- Implemented RAW YUV video decoding pipeline (MP4 -> YUV pre-conversion)
-- Automatic NV12/I420 color format detection and conversion
-- Activity lifecycle-based native memory release
-- Added Android memory monitoring skill
+- Implemented the RAW YUV video decoding pipeline (MP4→YUV pre-conversion)
+- Automatic detection and conversion of NV12/I420 color formats
+- Native memory release based on the Activity lifecycle
+- Added the Android memory monitoring skill
 
 ---
 
@@ -80,9 +324,9 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: March 2026
 
 ### Changes
-- Disabled StyleEncoder runtime inference (skip model load when .style is pre-loaded)
-- Restored SdkInitializer.validate() call
-- Improved sample app resource download flow
+- Disabled StyleEncoder runtime inference (model loading is skipped when a .style file is preloaded)
+- Restored the SdkInitializer.validate() call
+- Improved the sample app resource download flow
 
 ---
 
@@ -91,11 +335,11 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: March 2026
 
 ### Changes
-- Pre-computed .style file loading (added StyleFileLoader)
-- Deleted style_encoder_float32.bin asset (~35MB AAR size reduction)
-- Internalized play() parameters (removed ttsModelUse, mmapEnabled, tokenServerUrl)
+- Loading of pre-computed .style files (added StyleFileLoader)
+- Removed the style_encoder_float32.bin asset (~35 MB AAR size reduction)
+- Made play() parameters internal variables (removed ttsModelUse, mmapEnabled, tokenServerUrl)
 - Added WebSocket voice signals (SPEECH_START, SPEECH_END, STOP_RESPONSE_MESSAGE)
-- ResourceManager .style file download support
+- ResourceManager support for downloading .style files
 
 ---
 
@@ -104,8 +348,8 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: March 2026
 
 ### Changes
-- Changed Oboe input format from Float to I16 (improved USB microphone compatibility)
-- Added I16 -> Float32 runtime conversion logic
+- Changed the Oboe input format from Float to I16 (securing USB microphone compatibility)
+- Added I16 → Float32 runtime conversion logic
 - publish.sh support for per-STT-provider deployment
 
 ---
@@ -115,9 +359,9 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: March 2026
 
 ### Changes
-- Added ALWAYS_ON voice mode (auto-starts after play(), session maintained)
+- Added the ALWAYS_ON voice mode (auto-start after play(), session maintained)
 - Removed CONTINUOUS mode and cleaned up dead code
-- Removed unnecessary Azure STT START_VOICE/END_VOICE signals
+- Removed unnecessary START_VOICE/END_VOICE signals from Azure STT
 
 ---
 
@@ -126,7 +370,7 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: March 2026
 
 ### Changes
-- Azure STT token server integration
+- Integrated the Azure STT token server
 
 ---
 
@@ -135,27 +379,27 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: March 2026
 
 ### New Features
-- Added voice recognition status notification (`STT_STATUS`) -- Notifies app of token waiting/reconnecting/recovery complete states
+- Added speech recognition status notifications (`STT_STATUS`) — notifies the app of token-waiting/reconnecting/recovery-complete states
 
 ### Bug Fixes
-- Fixed audio input stream open failure on some devices
-- Added `mmapEnabled` parameter to `play()` function
+- Fixed audio input stream open failures on some devices
+- Added the `mmapEnabled` parameter to the `play()` function
 
 ---
 
 ## v0.2.16
 
 ### Improvements
-- Added STT interim results (`STT_PARTIAL`) support
-- Changed SDK distribution to bundled AAR (unified dependencies)
+- Added support for STT interim results (`STT_PARTIAL`)
+- Changed SDK distribution to a bundled AAR (dependency consolidation)
 
 ---
 
 ## v0.2.15
 
 ### New Features
-- Voice recognition improvements
-- Automatic voice recognition pause during avatar speech
+- Improved speech recognition
+- Speech recognition is paused automatically while the avatar is speaking
 
 ---
 
@@ -185,22 +429,22 @@ Version-specific changes for the Klleon Ondevice SDK.
 ## v0.2.11
 
 ### Bug Fixes
-- Fixed staircase artifact during screen rotation rendering
+- Fixed the staircase artifact when rotating the screen
 
 ---
 
 ## v0.2.10
 
 ### New Features
-- `sendStopSpeech()`: Avatar speech interruption
-- `sendChangeLanguage()`: Language change during conversation
+- `sendStopSpeech()`: interrupts the avatar's speech
+- `sendChangeLanguage()`: changes the language during a conversation
 
 ---
 
 ## v0.2.9
 
 ### New Features
-- Multi-language support (Korean/Japanese/English)
+- Multilingual support (Korean/Japanese/English)
 - Android TV UI improvements
 
 ---
@@ -209,7 +453,7 @@ Version-specific changes for the Klleon Ondevice SDK.
 
 ### New Features
 - Android TV 270-degree rotation support
-- Dynamic `characterId` passing per character
+- Dynamic per-character `characterId` delivery
 
 ---
 
@@ -223,7 +467,7 @@ Version-specific changes for the Klleon Ondevice SDK.
 ## v0.2.6
 
 ### New Features
-- Added `sendChangeLanguage()` API
+- Added the `sendChangeLanguage()` API
 - Improved STT result handling
 
 ---
@@ -241,11 +485,11 @@ Version-specific changes for the Klleon Ondevice SDK.
 ## v0.2.4
 
 ### New Features
-- `play()` API change: Switched to `sdkKey`, `characterId`, `language` based
+- `play()` API change: switched to being based on `sdkKey`, `characterId`, and `language`
 
 ### Bug Fixes
 - Sony TV / Android 8.1 compatibility fixes
-- Improved long-term usage stability
+- Improved stability during extended use
 
 ---
 
@@ -254,7 +498,7 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: December 2025
 
 ### Improvements
-- Security enhancements
+- Strengthened security
 
 ---
 
@@ -263,7 +507,7 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: November 2025
 
 ### Improvements
-- AI inference performance optimization
+- Optimized AI inference performance
 
 ---
 
@@ -273,7 +517,7 @@ Version-specific changes for the Klleon Ondevice SDK.
 
 ### Bug Fixes
 - Improved server connection stability
-- Enhanced WebSocket reconnection logic
+- Strengthened WebSocket reconnection logic
 
 ---
 
@@ -282,8 +526,8 @@ Version-specific changes for the Klleon Ondevice SDK.
 **Release date**: September 2025
 
 ### Improvements
-- Enhanced model security
-- Video processing performance optimization
+- Strengthened model security
+- Optimized video processing performance
 - Improved GPU acceleration performance
 
 ---
@@ -291,8 +535,8 @@ Version-specific changes for the Klleon Ondevice SDK.
 ## v0.1.x (Initial Versions)
 
 ### Core Features
-- AI-powered real-time video processing
-- Lip Sync functionality
+- AI-based real-time video processing
+- Lip sync
 - WebSocket real-time communication
 
 ### Supported Environments
@@ -305,11 +549,12 @@ Version-specific changes for the Klleon Ondevice SDK.
 ## Supported Versions
 
 | Version | Status | Notes |
-|---------|--------|-------|
-| 0.5.x | Active support | Latest |
-| 0.4.x | Active support | |
-| 0.3.x | Active support | |
+|------|------|------|
+| 0.6.x | Actively supported | Latest |
+| 0.5.x | Actively supported | |
+| 0.4.x | Actively supported | |
+| 0.3.x | Actively supported | |
 | 0.2.x | Maintenance | |
-| 0.1.x | End of support | Ended Q1 2025 |
+| 0.1.x | End of support | Ended in Q1 2025 |
 
 We recommend using the latest version.
