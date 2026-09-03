@@ -264,6 +264,72 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ---
 
+## Chat API
+
+biz-backend `/api/v1/chat` を呼び出します。HTTP・認証・画像 URL の絶対化・パースは SDK が処理し、呼び出し側は blocks のみを受け取ります。raw app secret key は SDK 内部に閉じ込められます。
+
+### chat()
+
+```kotlin
+suspend fun chat(
+    context: Context,
+    text: String,
+    lang: String = "ko",
+    sessionId: String? = null,
+): ChatResult
+```
+
+| パラメータ | 型 | 必須 | 説明 |
+|---------|------|------|------|
+| `text` | String | O | ユーザー入力 |
+| `lang` | String | X | 応答言語（`ko` / `en` / `ja`） |
+| `sessionId` | String? | X | 会話単位のマルチターン文脈キー。会話開始時に UUID を生成してその会話のすべての呼び出しで再利用し、終了時に破棄します。`null` の場合、サーバーは履歴なしの単発で応答します |
+
+`play()` セッションは不要で、`ResourceManager.init()` の先行のみ必要です。結果は `ChatResult.Success(blocks)` または `ChatResult.Error(error, message)` で、`ChatBlock` は `Text` / `Image` / `Unknown` です（未知の type は `Unknown` にフォールバックし、前方互換性を保証します）。
+
+### ChatBlock.Text.speech
+
+v0.13.0+。テキスト block に **サーバーのキャッシュ音声への参照** が含まれる場合があります。
+
+```kotlin
+data class Text(
+    val content: String,
+    val speech: CachedSpeechRef? = null,
+) : ChatBlock()
+
+data class CachedSpeechRef(
+    val fileName: String,   // 例: "Mn38h2DpWyJ2.pcm"
+    val format: String?,    // 例: "pcm_s16le_16k"
+)
+```
+
+`speech` が `null` でない場合、**サーバーにこの回答の録音がある** という意味です。再生せよという指示ではなく、端末がそのファイルを取得済みかを確認するための **参照キー** です。存在しない場合は通常どおり TTS で発話してください。
+
+```kotlin
+val ref = block.speech
+if (ref != null && myCache.has(ref.fileName)) {
+    klleonOndeviceSdk.speakCachedPcm16Le(myCache.read(ref.fileName))
+} else {
+    klleonOndeviceSdk.sendMessageEcho(block.content)   // TTS フォールバック
+}
+```
+
+:::info
+`fileName` は回答テキストの決定的なハッシュです。**自前で計算せず、サーバーが返した値をそのまま参照キーとして使用してください** — ハッシュ規則を複製すると静かにずれます。`format` は補助情報であり、判定キーは `fileName` の 1 つだけです。
+:::
+
+### setChatBaseUrl()
+
+v0.13.0+。[chat()](#chat) リクエストの送信先サーバーを変更します。ローカル・ステージングサーバーの検証用です。
+
+```kotlin
+fun setChatBaseUrl(url: String?)
+```
+
+`null` を渡すと SDK のデフォルトに戻ります。起動時のキャッシュ音声同期も指定サーバーを参照させるため、`ResourceManager.init()` の **前に** 呼び出してください。
+
+---
+
 ## キャッシュ発話 API
 
 v0.12.0+。あらかじめ用意した PCM オーディオをサーバー往復なしで即座に発話します。挨拶や案内文のような固定のセリフで応答遅延をなくす用途に使用します。
@@ -295,6 +361,105 @@ suspend fun speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>
 | パラメータ | 型 | 必須 | 説明 |
 |---------|------|------|------|
 | `pcmBytes` | ByteArray | O | 16kHz モノラル int16 リトルエンディアン PCM（キャッシュ仕様により 16kHz 固定） |
+
+### キャッシュストア（v0.13.0+）
+
+SDK がキャッシュ PCM を保管し、保持しているかどうかを返します。`chat()` レスポンスの [speech](#chatblocktextspeech) が **サーバーにあるか** を伝えるのに対し、こちらは **この端末にあるか** に答えます。ファイルはアプリ専用の内部ストレージに保管され、他のアプリからはアクセスできません。
+
+```kotlin
+fun hasCachedSpeech(context: Context, fileName: String): Boolean
+fun importCachedSpeech(context: Context, fileName: String, pcmBytes: ByteArray): Boolean
+fun cachedSpeechCount(context: Context): Int
+suspend fun speakCachedFile(fileName: String): Result<Int>
+```
+
+| 関数 | 説明 | `play()` 必要 |
+|------|------|------|
+| `hasCachedSpeech` | 保持しているか。毎回の応答で呼び出せるようメモリ参照です | X |
+| `importCachedSpeech` | 格納。16kHz モノラル int16 LE の raw PCM。同名は上書きします | X |
+| `cachedSpeechCount` | 保持件数（診断用） | X |
+| `speakCachedFile` | 保持しているファイル名で発話 | **O**（`useMelSpectrogram = true`） |
+
+### speakAnswer()
+
+v0.13.0+。**2 段階の判定とフォールバックを SDK が代行します。** 上記の関数を自分で組み合わせる代わりに、こちらを使ってください。
+
+```kotlin
+suspend fun speakAnswer(context: Context, block: ChatBlock.Text): Result<SpeechSource>
+
+enum class SpeechSource { CACHED, TTS, ERROR_NOTICE }
+```
+
+| 段階 | 条件 | 結果 |
+|---|---|---|
+| 1 | サーバーがキャッシュファイル名を返し、かつ端末が保持している | `CACHED` — ローカル PCM、サーバー往復なし |
+| 2 | それ以外、またはキャッシュ再生に失敗 | `TTS` — 従来の WebSocket 発話 |
+| 3 | TTS も失敗（WebSocket 切断など） | `ERROR_NOTICE` — 案内音声のみ。**回答は伝わりません** |
+
+```kotlin
+val first = blocks.filterIsInstance<ChatBlock.Text>().firstOrNull()
+first?.let { block ->
+    when (klleonOndeviceSdk.speakAnswer(context, block).getOrNull()) {
+        SpeechSource.CACHED -> { /* キャッシュヒット */ }
+        SpeechSource.TTS -> { /* 通常経路 */ }
+        SpeechSource.ERROR_NOTICE -> { /* 回答が伝わっていない — 画面表示などの追加対応を検討 */ }
+        null -> { /* 案内音声すら失敗 */ }
+    }
+}
+```
+
+:::info
+3 段階目がある理由は **沈黙を防ぐため** です。ユーザーが話しかけたのに何の音も出ないと、アバターが無視したように見えます。
+
+1 段と 3 段は `play(useMelSpectrogram = true)` のセッションでのみ動作します。それ以外のセッションでは 2 段のみ利用可能で、失敗時は `Result.failure` です。
+:::
+
+**自分で組み合わせる場合**（`speakAnswer` を使わないとき）:
+```kotlin
+val ref = block.speech                                            // 1 次 — サーバーにあるか
+if (ref != null && sdk.hasCachedSpeech(context, ref.fileName)) {  // 2 次 — 端末にあるか
+    sdk.speakCachedFile(ref.fileName)                             // ローカル PCM 発話
+} else {
+    sdk.sendMessageEcho(block.content)                            // TTS フォールバック
+}
+```
+
+### syncCachedSpeech()
+
+v0.13.0+。サーバーのキャッシュ音声一覧と端末の保持分を突き合わせます — ないものや更新されたものだけをダウンロードし、サーバーから消えたものは削除します。アプリ起動時など任意のタイミングで呼び出してください。`play()` セッションは不要です。
+
+```kotlin
+suspend fun syncCachedSpeech(
+    context: Context,
+    onProgress: ((done: Int, total: Int) -> Unit)? = null,
+): Result<CachedSpeechSyncResult>
+
+data class CachedSpeechSyncResult(
+    val remoteTotal: Int, val downloaded: Int, val removed: Int, val failed: Int,
+)
+```
+
+```kotlin
+scope.launch {
+    klleonOndeviceSdk.syncCachedSpeech(context) { done, total ->
+        updateProgress(done, total)
+    }.onSuccess { Log.i(TAG, "同期: $it") }
+}
+```
+
+:::info
+**[setChatBaseUrl](#setchatbaseurl) で指定したサーバーから取得します。** ファイル名は `chat()` レスポンス由来のため、アセットも同じサーバーでなければ名前が一致しません。
+
+再ダウンロードの判定はサーバーの `updated_at` で行います — ファイル名は回答テキストのハッシュであり、同じ文を録音し直しても名前が変わらないためです。
+
+中断しても安全です（サーバーはステートレス）。再度呼び出すと残りから再開します。すでに同期が実行中の場合は即座に失敗を返します。個々のファイルの失敗は `failed` として数え、**全体を中断しません**。
+:::
+
+:::info
+`importCachedSpeech` はファイル名にパス区切りや `..` が含まれる場合は拒否します。`updatedAt` を併せて渡すと、次回の同期でそのファイルを最新として扱います（省略するとバージョン不明とみなし、一度だけ再取得します）。
+
+保持一覧にあってもファイルが消えている場合、`speakCachedFile` は失敗を返し、一覧から自動的に削除します。その際は TTS にフォールバックしてください — `hasCachedSpeech` が true でも発話が保証されるわけではありません。
+:::
 
 ### isCachedSpeechReady()
 

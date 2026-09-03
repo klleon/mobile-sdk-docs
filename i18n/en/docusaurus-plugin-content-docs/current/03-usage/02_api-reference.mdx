@@ -264,6 +264,72 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ---
 
+## Chat API
+
+Calls biz-backend `/api/v1/chat`. The SDK handles HTTP, authentication, image URL absolutization, and parsing; the caller only receives blocks. The raw app secret key stays inside the SDK.
+
+### chat()
+
+```kotlin
+suspend fun chat(
+    context: Context,
+    text: String,
+    lang: String = "ko",
+    sessionId: String? = null,
+): ChatResult
+```
+
+| Parameter | Type | Required | Description |
+|---------|------|------|------|
+| `text` | String | O | User input |
+| `lang` | String | X | Response language (`ko` / `en` / `ja`) |
+| `sessionId` | String? | X | Multi-turn context key for one conversation. Generate a UUID when a conversation starts, reuse it for every call in that conversation, and discard it at the end. If `null`, the server replies without history |
+
+A `play()` session is not required — only a preceding `ResourceManager.init()`. The result is `ChatResult.Success(blocks)` or `ChatResult.Error(error, message)`, and `ChatBlock` is `Text` / `Image` / `Unknown` (an unknown type falls back to `Unknown`, guaranteeing forward compatibility).
+
+### ChatBlock.Text.speech
+
+v0.13.0+. A text block may carry a **reference to the server's cached audio**.
+
+```kotlin
+data class Text(
+    val content: String,
+    val speech: CachedSpeechRef? = null,
+) : ChatBlock()
+
+data class CachedSpeechRef(
+    val fileName: String,   // e.g. "Mn38h2DpWyJ2.pcm"
+    val format: String?,    // e.g. "pcm_s16le_16k"
+)
+```
+
+A non-null `speech` means **the server has a recording for this answer**. It is not an instruction to play it — it is a **lookup key** for checking whether the device already downloaded that file. If it is absent, speak with TTS as usual.
+
+```kotlin
+val ref = block.speech
+if (ref != null && myCache.has(ref.fileName)) {
+    klleonOndeviceSdk.speakCachedPcm16Le(myCache.read(ref.fileName))
+} else {
+    klleonOndeviceSdk.sendMessageEcho(block.content)   // TTS fallback
+}
+```
+
+:::info
+`fileName` is a deterministic hash of the answer text. **Do not compute it yourself — use the value the server returned as the lookup key.** Duplicating the hashing rule will silently drift. `format` is supplementary; `fileName` is the only key that matters.
+:::
+
+### setChatBaseUrl()
+
+v0.13.0+. Changes the server that [chat()](#chat) requests go to. Intended for local and staging verification.
+
+```kotlin
+fun setChatBaseUrl(url: String?)
+```
+
+Pass `null` to restore the SDK default. Call it **before** `ResourceManager.init()` so that the boot-time cached-audio sync also targets the chosen server.
+
+---
+
 ## Cached Speech API
 
 v0.12.0+. Plays pre-prepared PCM audio instantly without a server round trip. Use it to remove response latency for fixed lines such as greetings and guidance messages.
@@ -295,6 +361,105 @@ suspend fun speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>
 | Parameter | Type | Required | Description |
 |---------|------|------|------|
 | `pcmBytes` | ByteArray | O | 16 kHz mono int16 little-endian PCM (fixed at 16 kHz per the cache contract) |
+
+### Cache store (v0.13.0+)
+
+The SDK stores cached PCM and answers whether it holds a given file. Where [speech](#chatblocktextspeech) in the `chat()` response tells you **whether the server has it**, this tells you **whether this device has it**. Files live in app-private internal storage, inaccessible to other apps.
+
+```kotlin
+fun hasCachedSpeech(context: Context, fileName: String): Boolean
+fun importCachedSpeech(context: Context, fileName: String, pcmBytes: ByteArray): Boolean
+fun cachedSpeechCount(context: Context): Int
+suspend fun speakCachedFile(fileName: String): Result<Int>
+```
+
+| Function | Description | Requires `play()` |
+|------|------|------|
+| `hasCachedSpeech` | Whether it is held. An in-memory lookup, so it is safe to call on every response | X |
+| `importCachedSpeech` | Stores raw 16 kHz mono int16 LE PCM. Overwrites an existing name | X |
+| `cachedSpeechCount` | Number held (diagnostics) | X |
+| `speakCachedFile` | Speaks a held file by name | **O** (`useMelSpectrogram = true`) |
+
+### speakAnswer()
+
+v0.13.0+. **The SDK performs the two-stage decision and the fallbacks for you.** Prefer this over composing the functions above yourself.
+
+```kotlin
+suspend fun speakAnswer(context: Context, block: ChatBlock.Text): Result<SpeechSource>
+
+enum class SpeechSource { CACHED, TTS, ERROR_NOTICE }
+```
+
+| Stage | Condition | Result |
+|---|---|---|
+| 1 | The server returned a cached file name **and** the device holds it | `CACHED` — local PCM, no server round trip |
+| 2 | Otherwise, or cached playback failed | `TTS` — the existing WebSocket speech |
+| 3 | TTS also failed (socket dropped, etc.) | `ERROR_NOTICE` — notice audio only. **The answer is not delivered** |
+
+```kotlin
+val first = blocks.filterIsInstance<ChatBlock.Text>().firstOrNull()
+first?.let { block ->
+    when (klleonOndeviceSdk.speakAnswer(context, block).getOrNull()) {
+        SpeechSource.CACHED -> { /* cache hit */ }
+        SpeechSource.TTS -> { /* normal path */ }
+        SpeechSource.ERROR_NOTICE -> { /* answer not delivered — consider an on-screen notice */ }
+        null -> { /* even the notice audio failed */ }
+    }
+}
+```
+
+:::info
+Stage 3 exists to **prevent silence**. If the user speaks and hears nothing at all, the avatar appears to have ignored them.
+
+Stages 1 and 3 work only in a `play(useMelSpectrogram = true)` session. Other sessions can use stage 2 only, and `Result.failure` is returned when it fails.
+:::
+
+**If you compose it yourself** (not using `speakAnswer`):
+```kotlin
+val ref = block.speech                                            // stage 1 — does the server have it
+if (ref != null && sdk.hasCachedSpeech(context, ref.fileName)) {  // stage 2 — does this device have it
+    sdk.speakCachedFile(ref.fileName)                             // local PCM playback
+} else {
+    sdk.sendMessageEcho(block.content)                            // TTS fallback
+}
+```
+
+### syncCachedSpeech()
+
+v0.13.0+. Reconciles the server's cached-audio list with what the device holds — downloads only what is missing or updated, and removes what disappeared from the server. Call it whenever you like, such as at app start. No `play()` session is required.
+
+```kotlin
+suspend fun syncCachedSpeech(
+    context: Context,
+    onProgress: ((done: Int, total: Int) -> Unit)? = null,
+): Result<CachedSpeechSyncResult>
+
+data class CachedSpeechSyncResult(
+    val remoteTotal: Int, val downloaded: Int, val removed: Int, val failed: Int,
+)
+```
+
+```kotlin
+scope.launch {
+    klleonOndeviceSdk.syncCachedSpeech(context) { done, total ->
+        updateProgress(done, total)
+    }.onSuccess { Log.i(TAG, "Sync: $it") }
+}
+```
+
+:::info
+**Assets are fetched from the server set by [setChatBaseUrl](#setchatbaseurl).** File names come from the `chat()` response, so the assets must be on the same server for the names to match.
+
+Re-download is decided by the server's `updated_at` — the file name is a hash of the answer text, so re-recording the same sentence keeps the same name.
+
+Interrupting is safe (the server is stateless). Calling it again resumes with what is left. If a sync is already running, it fails immediately. Individual file failures are counted in `failed` and **do not abort the whole run**.
+:::
+
+:::info
+`importCachedSpeech` rejects file names containing path separators or `..`. Passing `updatedAt` lets the next sync treat that file as current (omit it and the file is treated as unknown-version and re-downloaded once).
+
+Even if a name is in the held list, a missing file makes `speakCachedFile` fail and removes it from the list automatically. Fall back to TTS in that case — a `true` from `hasCachedSpeech` does not guarantee playback.
+:::
 
 ### isCachedSpeechReady()
 

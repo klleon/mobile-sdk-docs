@@ -5,6 +5,40 @@ title: 開発ガイド
 sidebar_label: guides
 ---
 
+## v0.12.x → v0.13.0 マイグレーション
+
+> 本リリースには Breaking な変更が含まれています。
+
+### 変更概要
+
+- `chat()` から `scope` パラメータを削除 — サーバーが契約から外しました
+- `ChatBlock.Text` に `speech: CachedSpeechRef?` を追加 — **バイナリ非互換**（再コンパイルが必要）
+
+### 1. `chat()` の呼び出し箇所をすべて確認してください ⚠️
+
+:::danger 位置引数での呼び出しはコンパイルを通り、静かに誤動作します
+```kotlin
+sdk.chat(ctx, text, "sony_booth", "ko")   // 0.12.x — コンパイルは通ります。"sony_booth" が lang にバインドされます
+sdk.chat(ctx, text, lang = "ko")          // 0.13.0
+```
+名前付き引数（`scope = ...`）で渡していたコードだけがコンパイルエラーになります。位置引数で
+`scope` を渡していたコードは **エラーなしで誤った言語をリクエスト** してしまうため、
+`chat(` を全件 grep してください。
+:::
+
+### 2. 再コンパイル
+
+`ChatBlock.Text` の `copy`/`componentN` のシグネチャが変わりました。ソースの変更は不要ですが、
+SDK を更新したあとに **再ビルド** が必要です。
+
+### 3.（任意）キャッシュ発話への移行
+
+これまで `speakCachedAsset()` を自前で組み合わせていた場合は `speakAnswer()` に移行できます。
+キャッシュの有無の判定と TTS・案内音声へのフォールバックを SDK が処理します。
+[7-1](#7-1-キャッシュ発話) を参照してください。
+
+---
+
 ## v0.6.0 → v0.8.0 マイグレーション
 
 > 本リリースには Breaking な変更が含まれています。以下の手順に従って移行してください。
@@ -229,9 +263,14 @@ sdk.startVoiceRecognition()
 klleonOndeviceSdk.sendStopSpeech()
 ```
 
-### 7-1. キャッシュ発話（v0.12.0+）
+### 7-1. キャッシュ発話
 
-挨拶や案内文のような **固定のセリフ** は、あらかじめ用意した PCM で発話することでサーバー往復の遅延をなくせます。
+サーバーがあらかじめ合成しておいた録音を端末で再生し、TTS の往復をなくします。
+実測: キャッシュヒット時は STT →発話が **0.7 秒**、TTS 経路では 2.1〜3.0 秒です。
+
+#### 推奨 — `speakAnswer()`（v0.13.0+）
+
+chat のレスポンスブロックをそのまま渡せば、判定とフォールバックまで SDK が処理します。
 
 ```kotlin
 CoroutineScope(Dispatchers.IO).launch {
@@ -245,10 +284,42 @@ CoroutineScope(Dispatchers.IO).launch {
         useMelSpectrogram = true,
     )
 
-    if (klleonOndeviceSdk.isCachedSpeechReady()) {
-        klleonOndeviceSdk.speakCachedAsset("greeting_ko.pcm")
-            .onFailure { Log.w(TAG, "キャッシュ発話に失敗しました: ${it.message}") }
+    when (val result = klleonOndeviceSdk.chat(context, text = userInput, lang = "ko")) {
+        is ChatResult.Success -> {
+            // 最初の text ブロックが最もスコアの高い回答です
+            result.blocks.filterIsInstance<ChatBlock.Text>().firstOrNull()?.let { block ->
+                klleonOndeviceSdk.speakAnswer(context, block)
+                    .onSuccess { source -> Log.d(TAG, "発話経路: $source") }  // CACHED / TTS / ERROR_NOTICE
+                    .onFailure { Log.e(TAG, "すべての発話経路が失敗しました: ${it.message}") }
+            }
+        }
+        is ChatResult.Error -> Log.e(TAG, "${result.error}: ${result.message}")
     }
+}
+```
+
+**3 段フォールバック** — ユーザーが話しかけたのに何も音が出ない状況を防ぎます。
+
+| 段階 | 条件 | 結果 |
+|---|---|---|
+| 1 | サーバーが `speech_file_name` を返し、**端末も保持している** | `CACHED` — ローカル PCM を再生 |
+| 2 | 1 に該当しない、または再生に失敗 | `TTS` — 従来のサーバー TTS |
+| 3 | TTS も失敗（ソケット切断など） | `ERROR_NOTICE` — ローカルの案内音声 |
+
+1 段と 3 段は `useMelSpectrogram = true` のセッションでのみ動作します。それ以外のセッションでは
+2 段のみ利用可能で、2 段が失敗した場合は `Result.failure` を返します。
+
+キャッシュは `ResourceManager.init()` がサーバーと自動的に同期します。サーバーに資産がない場合は
+同期が 0 件で終わり、すべての回答が 2 段（TTS）で発話されます — 不具合ではありません。
+
+#### 低レベル — `speakCachedAsset()`（v0.12.0+）
+
+chat を経由せずに固定のセリフを直接再生する場合に使用します。
+
+```kotlin
+if (klleonOndeviceSdk.isCachedSpeechReady()) {
+    klleonOndeviceSdk.speakCachedAsset("greeting_ko.pcm")
+        .onFailure { Log.w(TAG, "キャッシュ発話に失敗しました: ${it.message}") }
 }
 ```
 
@@ -293,6 +364,11 @@ klleonSdkView.setRenderRotation(270)
 play() → setIdleTimeout() → 会話 → TTS_END → 60 秒間の無操作
   → STANDBY_ENTER イベント → 自動 enterStandby()
   → ウェイクワード検出 → exitStandby() + 言語切り替え → 会話を再開
+
+メッセージ送信後にサーバー応答が来ない場合（v0.12.1+）
+sendMessage() → 応答 watchdog（最大 20 秒、60 秒の予算内） → サーバーイベントなし
+  → 残りの 40 秒を無操作として計測し続ける → STANDBY_ENTER
+  ※ 総待機時間は送信の有無にかかわらず常に timeoutMs（60 秒）です
 ```
 
 #### 自動待機画面の設定

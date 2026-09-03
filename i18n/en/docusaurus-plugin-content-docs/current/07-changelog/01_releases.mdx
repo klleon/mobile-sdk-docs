@@ -11,7 +11,81 @@ Changes in the Klleon Ondevice SDK by version.
 
 ---
 
-## v0.12.0 (Latest)
+## v0.13.0 (Latest)
+
+**Release date**: September 2026
+
+### Breaking Changes
+
+- **The `scope` parameter was removed from `chat()`.** The server dropped it from the contract —
+  the index is selected from the authenticated tenant, so the value was never used.
+
+  :::danger Positional calls compile fine and fail silently
+  ```kotlin
+  sdk.chat(ctx, text, "sony_booth", "ko")   // 0.12.x — compiles. "sony_booth" now binds to lang
+  sdk.chat(ctx, text, lang = "ko")          // 0.13.0
+  ```
+  Only code that passed it as a named argument (`scope = ...`) fails to compile. **Audit every**
+  `chat(` call site when upgrading.
+  :::
+
+- **`ChatBlock.Text` gained a `speech: CachedSpeechRef?` field.** Source compatible, but the
+  `copy`/`componentN` signatures changed, making it **binary incompatible** — recompile required.
+
+### New Features
+
+- **Cached speech** — plays a recording the server synthesized in advance, so there is no TTS
+  round trip (measured: 0.7 s from STT to speech on a cache hit, versus 2.1–3.0 s via TTS).
+  - `speakAnswer(context, block)` — **three-stage fallback**: cached PCM → TTS → notice audio.
+    It exists to prevent the user speaking and hearing nothing back
+  - `syncCachedSpeech()` · `hasCachedSpeech()` · `importCachedSpeech()` ·
+    `cachedSpeechCount()` · `speakCachedFile()` — cache store
+  - `ChatBlock.Text.speech` — a **lookup key** telling you the server holds a recording for this answer
+- `setChatBaseUrl(url)` — switches the chat and asset server (for local server verification)
+
+### Behavior Changes
+
+- `ResourceManager.init()` now synchronizes cached audio with the server automatically. The
+  signature is unchanged. If the server holds no assets, the sync ends with zero downloads and
+  speech falls back to the existing TTS.
+
+### Bug Fixes
+
+- Attestation could fail **permanently** on a reinstalled device because of a dead keystore key.
+  If `Cipher.init` fails, the alias is now deleted and regenerated once
+- An empty manifest caused the entire local cache to be marked for deletion (guard added)
+- Input arriving while the avatar was preparing to speak could start a second turn, making the
+  avatar speak two answers back to back
+- Cached speech sat outside the avatar response cycle, breaking the `TTS_START`/`TTS_END` pairing
+
+---
+
+## v0.12.1
+
+**Release date**: August 2026
+
+### Bug Fixes
+- **`setIdleTimeout()` stopped working permanently when the server never responded after a send.**
+  `sendMessage()`/`sendMessageEcho()` only stopped the idle timer and relied on server events to
+  restart it, so if the server returned nothing, `STANDBY_ENTER` never fired for that session.
+  Sending now switches to a response watchdog, so it converges within `timeoutMs` even with no
+  response. The watchdog occupies the leading portion of the `timeoutMs` budget (up to 20 s), so
+  the total wait does not increase.
+- Added `RATE_LIMIT`, `WSS_FAILURE`, and `WSS_RETRY_OVER` to the idle-timer restart triggers.
+  `RATE_LIMIT` in particular is a case where the server responds instead of `PREPARING_RESPONSE`,
+  so the recovery signal was missing at exactly the moment the timer was stopped.
+
+### Internal Changes
+- Extracted the idle-timer restart trigger list into a single source. The progress signals and
+  the termination signals had diverged into two copies, causing the triggers to drift.
+
+### Compatibility
+No public API signature changes. Only apps using `setIdleTimeout()` see a behavior difference —
+previously the standby screen was not entered when the server did not respond; now it is.
+
+---
+
+## v0.12.0
 
 **Release date**: August 2026
 
@@ -204,7 +278,7 @@ No API changes. v0.8.0 users are advised to simply bump the dependency version t
 - `SttMode.AUTO_SEND_TO_SERVER` is `@Deprecated` — use `STT_ONLY` instead. Scheduled for removal in v0.9.0+.
 
 ### Migration
-For detailed steps, see [Guides → v0.6.0 → v0.8.0 migration](/category/04-guides).
+For detailed steps, see [Guides → v0.6.0 → v0.8.0 migration](/docs/guides/guides).
 
 ### Build Changes
 - `sttProvider` default changed from `agora` to `azure` (Azure Direct STT recommended)

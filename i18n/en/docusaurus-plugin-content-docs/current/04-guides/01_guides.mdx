@@ -5,6 +5,40 @@ title: Development Guide
 sidebar_label: guides
 ---
 
+## v0.12.x → v0.13.0 Migration
+
+> This release contains breaking changes.
+
+### Summary of Changes
+
+- Removed the `scope` parameter from `chat()` — the server dropped it from the contract
+- Added `speech: CachedSpeechRef?` to `ChatBlock.Text` — **binary incompatible** (recompile required)
+
+### 1. Audit every `chat()` call site ⚠️
+
+:::danger Positional calls compile fine and fail silently
+```kotlin
+sdk.chat(ctx, text, "sony_booth", "ko")   // 0.12.x — compiles. "sony_booth" now binds to lang
+sdk.chat(ctx, text, lang = "ko")          // 0.13.0
+```
+Only code that passed it as a named argument (`scope = ...`) will fail to compile. Code that
+passed `scope` positionally will **request the wrong language without any error**, so grep for
+`chat(` across your codebase.
+:::
+
+### 2. Recompile
+
+The `copy`/`componentN` signatures of `ChatBlock.Text` changed. No source change is required,
+but you must **rebuild** after upgrading the SDK.
+
+### 3. (Optional) Switch to cached speech
+
+If you were composing `speakCachedAsset()` calls yourself, you can move to `speakAnswer()` —
+the SDK decides whether a cached recording exists and falls back to TTS or the notice audio.
+See [7-1](#7-1-cached-speech).
+
+---
+
 ## v0.6.0 → v0.8.0 Migration
 
 > This release contains breaking changes. Follow the steps below to migrate.
@@ -229,9 +263,14 @@ You can immediately interrupt the avatar while it is speaking.
 klleonOndeviceSdk.sendStopSpeech()
 ```
 
-### 7-1. Cached Speech (v0.12.0+)
+### 7-1. Cached Speech
 
-For **fixed lines** such as greetings and guidance messages, you can play pre-prepared PCM to eliminate the server round-trip delay.
+Plays a recording the server synthesized in advance, eliminating the TTS round trip.
+Measured: **0.7 s** from STT to speech on a cache hit, versus 2.1–3.0 s via TTS.
+
+#### Recommended — `speakAnswer()` (v0.13.0+)
+
+Hand the chat response block to the SDK and it handles the routing and fallbacks.
 
 ```kotlin
 CoroutineScope(Dispatchers.IO).launch {
@@ -245,10 +284,43 @@ CoroutineScope(Dispatchers.IO).launch {
         useMelSpectrogram = true,
     )
 
-    if (klleonOndeviceSdk.isCachedSpeechReady()) {
-        klleonOndeviceSdk.speakCachedAsset("greeting_ko.pcm")
-            .onFailure { Log.w(TAG, "Cached speech failed: ${it.message}") }
+    when (val result = klleonOndeviceSdk.chat(context, text = userInput, lang = "ko")) {
+        is ChatResult.Success -> {
+            // The first text block is the highest-scoring answer
+            result.blocks.filterIsInstance<ChatBlock.Text>().firstOrNull()?.let { block ->
+                klleonOndeviceSdk.speakAnswer(context, block)
+                    .onSuccess { source -> Log.d(TAG, "Speech route: $source") }  // CACHED / TTS / ERROR_NOTICE
+                    .onFailure { Log.e(TAG, "All speech paths failed: ${it.message}") }
+            }
+        }
+        is ChatResult.Error -> Log.e(TAG, "${result.error}: ${result.message}")
     }
+}
+```
+
+**Three-stage fallback** — prevents the case where the user speaks and hears nothing back.
+
+| Stage | Condition | Result |
+|---|---|---|
+| 1 | Server returned `speech_file_name` **and the device holds it** | `CACHED` — local PCM playback |
+| 2 | Otherwise, or playback failed | `TTS` — the existing server TTS |
+| 3 | TTS also failed (socket dropped, etc.) | `ERROR_NOTICE` — local notice audio |
+
+Stages 1 and 3 require a `useMelSpectrogram = true` session. Other sessions can only use
+stage 2, and `Result.failure` is returned if that fails.
+
+`ResourceManager.init()` synchronizes the cache with the server automatically. If the server
+holds no assets, the sync completes with zero downloads and every answer goes through stage 2 —
+this is not a failure.
+
+#### Low level — `speakCachedAsset()` (v0.12.0+)
+
+Use this to play a fixed line directly, without going through chat.
+
+```kotlin
+if (klleonOndeviceSdk.isCachedSpeechReady()) {
+    klleonOndeviceSdk.speakCachedAsset("greeting_ko.pcm")
+        .onFailure { Log.w(TAG, "Cached speech failed: ${it.message}") }
 }
 ```
 
@@ -293,6 +365,11 @@ Like a computer screensaver, this feature switches the avatar to a standby state
 play() → setIdleTimeout() → conversation → TTS_END → 60 seconds of inactivity
   → STANDBY_ENTER event → automatic enterStandby()
   → wake word detected → exitStandby() + language switch → conversation resumes
+
+When the server never responds after a message is sent (v0.12.1+)
+sendMessage() → response watchdog (up to 20 s, within the 60 s budget) → no server event
+  → the remaining 40 s continues to count as inactivity → STANDBY_ENTER
+  ※ The total wait is always timeoutMs (60 s), whether or not a message was sent
 ```
 
 #### Configuring Automatic Standby

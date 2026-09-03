@@ -264,6 +264,85 @@ klleonOndeviceSdk.sendStopSpeech()
 
 ---
 
+## Chat API
+
+biz-backend `/api/v1/chat` 을 호출합니다. HTTP·인증·이미지 URL 절대화·파싱은 SDK가 처리하고, 호출자는 blocks 만 받습니다. raw app secret key 는 SDK 내부에 갇힙니다.
+
+### chat()
+
+```kotlin
+suspend fun chat(
+    context: Context,
+    text: String,
+    lang: String = "ko",
+    sessionId: String? = null,
+): ChatResult
+```
+
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `text` | String | O | 사용자 입력 |
+| `lang` | String | X | 응답 언어 (`ko` / `en` / `ja`) |
+| `sessionId` | String? | X | 대화 단위 멀티턴 맥락 키. 한 대화 시작 시 UUID 를 만들어 그 대화의 모든 호출에 재사용하고 종료 시 폐기합니다. `null` 이면 서버가 이력 없이 단발로 응답합니다 |
+
+`play()` 세션은 필요 없고 `ResourceManager.init()` 선행만 필요합니다. 결과는 `ChatResult.Success(blocks)` 또는 `ChatResult.Error(error, message)` 이며, `ChatBlock` 은 `Text` / `Image` / `Unknown` 입니다(미지의 type 은 `Unknown` 으로 폴백되어 forward-compat 을 보장).
+
+### ChatBlock.Text.speech
+
+v0.13.0+. 텍스트 block 에 **서버의 캐시 음성 참조**가 실릴 수 있습니다.
+
+```kotlin
+data class Text(
+    val content: String,
+    val speech: CachedSpeechRef? = null,
+) : ChatBlock()
+
+data class CachedSpeechRef(
+    val fileName: String,   // 예: "Mn38h2DpWyJ2.pcm"
+    val format: String?,    // 예: "pcm_s16le_16k"
+)
+```
+
+`speech` 가 `null` 이 아니면 **서버에 이 답변의 녹음이 있다**는 뜻입니다. 재생하라는 지시가 아니라, 단말이 그 파일을 받아뒀는지 확인할 **조회 키**입니다. 없으면 평소대로 TTS 로 발화하면 됩니다.
+
+```kotlin
+val ref = block.speech
+if (ref != null && myCache.has(ref.fileName)) {
+    klleonOndeviceSdk.speakCachedPcm16Le(myCache.read(ref.fileName))
+} else {
+    klleonOndeviceSdk.sendMessageEcho(block.content)   // TTS 폴백
+}
+```
+
+:::info
+`fileName` 은 답변 텍스트의 결정적 해시입니다. **직접 계산하지 말고 서버가 준 값을 그대로 조회 키로 쓰세요** — 해시 규칙을 복제하면 조용히 어긋납니다. `format` 은 보조 정보이며 판단 키는 `fileName` 하나입니다.
+:::
+
+### setChatBaseUrl()
+
+v0.13.0+. [chat()](#chat) 요청이 나갈 서버를 바꿉니다. 로컬·스테이징 서버 검증용입니다.
+
+```kotlin
+fun setChatBaseUrl(url: String?)
+```
+
+| 매개변수 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `url` | String? | O | 예: `http://192.168.0.7:8080`. 끝 슬래시는 자동 제거됩니다. `null`/공백이면 기본 서버로 복귀 |
+
+```kotlin
+klleonOndeviceSdk.setChatBaseUrl("http://192.168.0.7:8080")  // 로컬 서버로
+klleonOndeviceSdk.setChatBaseUrl(null)                        // 기본 서버로 복귀
+```
+
+:::warning
+**인증(attestation)은 영향받지 않습니다.** `X-App-Secret-Key` 는 계속 기본 서버에서 발급받고, 지정한 서버는 그 값을 검증만 합니다. 따라서 대상 서버가 같은 app secret 을 알고 있어야 하며, 다르면 chat 이 401 로 실패합니다.
+
+`http` 를 쓰려면 앱의 network security config 에 해당 호스트의 cleartext 허용이 필요합니다. 다음 `chat()` 호출부터 적용됩니다.
+:::
+
+---
+
 ## 캐시 발화 API
 
 v0.12.0+. 미리 준비한 PCM 오디오를 서버 왕복 없이 즉시 발화합니다. 인사말·안내 문구처럼 고정된 대사에서 응답 지연을 없앨 때 사용합니다.
@@ -295,6 +374,105 @@ suspend fun speakCachedPcm16Le(pcmBytes: ByteArray): Result<Int>
 | 매개변수 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
 | `pcmBytes` | ByteArray | O | 16kHz mono int16 little-endian PCM (캐시 계약상 16kHz 고정) |
+
+### 캐시 스토어 (v0.13.0+)
+
+SDK 가 캐시 PCM 을 보관하고 보유 여부를 답합니다. `chat()` 응답의 [speech](#chatblocktextspeech) 가 **서버에 있나**를 알려준다면, 이쪽은 **이 단말에 있나**를 답합니다. 파일은 앱 전용 내부 저장소에 보관되어 다른 앱이 접근할 수 없습니다.
+
+```kotlin
+fun hasCachedSpeech(context: Context, fileName: String): Boolean
+fun importCachedSpeech(context: Context, fileName: String, pcmBytes: ByteArray): Boolean
+fun cachedSpeechCount(context: Context): Int
+suspend fun speakCachedFile(fileName: String): Result<Int>
+```
+
+| 함수 | 설명 | `play()` 필요 |
+|------|------|------|
+| `hasCachedSpeech` | 보유 여부. 매 응답마다 호출해도 되도록 메모리 조회입니다 | X |
+| `importCachedSpeech` | 적재. 16kHz mono int16 LE raw PCM. 같은 이름은 덮어씁니다 | X |
+| `cachedSpeechCount` | 보유 개수(진단용) | X |
+| `speakCachedFile` | 보유 파일명으로 발화 | **O** (`useMelSpectrogram = true`) |
+
+### speakAnswer()
+
+v0.13.0+. **2단계 판단과 폴백을 SDK 가 대신합니다.** 위 함수들을 직접 조합하는 대신 이걸 쓰면 됩니다.
+
+```kotlin
+suspend fun speakAnswer(context: Context, block: ChatBlock.Text): Result<SpeechSource>
+
+enum class SpeechSource { CACHED, TTS, ERROR_NOTICE }
+```
+
+| 단계 | 조건 | 결과 |
+|---|---|---|
+| 1 | 서버가 캐시 파일명을 줬고 + 단말이 보유 | `CACHED` — 로컬 PCM, 서버 왕복 없음 |
+| 2 | 그 외이거나 캐시 재생 실패 | `TTS` — 기존 웹소켓 발화 |
+| 3 | TTS 도 실패(웹소켓 단절 등) | `ERROR_NOTICE` — 안내 음성만. **답변은 전달 안 됨** |
+
+```kotlin
+val first = blocks.filterIsInstance<ChatBlock.Text>().firstOrNull()
+first?.let { block ->
+    when (klleonOndeviceSdk.speakAnswer(context, block).getOrNull()) {
+        SpeechSource.CACHED -> { /* 캐시 적중 */ }
+        SpeechSource.TTS -> { /* 일반 경로 */ }
+        SpeechSource.ERROR_NOTICE -> { /* 답변 전달 실패 — 화면 안내 등 추가 대응 */ }
+        null -> { /* 안내 음성까지 실패 */ }
+    }
+}
+```
+
+:::info
+3단계가 있는 이유는 **침묵을 막기 위해서**입니다. 사용자가 말을 걸었는데 아무 소리도 나지 않으면 아바타가 무시한 것으로 보입니다.
+
+1·3단계는 `play(useMelSpectrogram = true)` 세션에서만 동작합니다. 그 외 세션에서는 2단계만 가능하며, 실패 시 `Result.failure` 입니다.
+:::
+
+**직접 조합하려면** (`speakAnswer` 를 안 쓰는 경우):
+```kotlin
+val ref = block.speech                                    // 1차 — 서버에 있나
+if (ref != null && sdk.hasCachedSpeech(context, ref.fileName)) {   // 2차 — 단말에 있나
+    sdk.speakCachedFile(ref.fileName)                     // 로컬 PCM 발화
+} else {
+    sdk.sendMessageEcho(block.content)                    // TTS 폴백
+}
+```
+
+### syncCachedSpeech()
+
+v0.13.0+. 서버의 캐시 음성 목록과 단말 보유분을 맞춥니다 — 없거나 갱신된 것만 내려받고, 서버에서 사라진 것은 지웁니다. 앱 시작 등 원하는 시점에 호출하세요. `play()` 세션은 필요 없습니다.
+
+```kotlin
+suspend fun syncCachedSpeech(
+    context: Context,
+    onProgress: ((done: Int, total: Int) -> Unit)? = null,
+): Result<CachedSpeechSyncResult>
+
+data class CachedSpeechSyncResult(
+    val remoteTotal: Int, val downloaded: Int, val removed: Int, val failed: Int,
+)
+```
+
+```kotlin
+scope.launch {
+    klleonOndeviceSdk.syncCachedSpeech(context) { done, total ->
+        updateProgress(done, total)
+    }.onSuccess { Log.i(TAG, "동기화: $it") }
+}
+```
+
+:::info
+**[setChatBaseUrl](#setchatbaseurl) 로 지정한 서버에서 받습니다.** 파일명이 `chat()` 응답에서 오므로 자산도 같은 서버여야 이름이 맞습니다.
+
+재다운로드 판정은 서버의 `updated_at` 으로 합니다 — 파일명은 답변 텍스트의 해시라 같은 문장을 다시 녹음해도 이름이 그대로이기 때문입니다.
+
+중단해도 안전합니다(서버 무상태). 다시 호출하면 남은 것부터 이어받습니다. 이미 동기화가 돌고 있으면 즉시 실패를 돌려줍니다. 개별 파일 실패는 `failed` 로 세고 **전체를 중단하지 않습니다**.
+:::
+
+:::info
+`importCachedSpeech` 는 파일명에 경로 구분자나 `..` 가 있으면 거부합니다. `updatedAt` 을 함께 넘기면 다음 동기화가 그 파일을 최신으로 인정합니다(생략하면 버전 미상으로 보고 한 번 다시 받습니다).
+
+보유 목록에 있어도 파일이 사라졌으면 `speakCachedFile` 이 실패를 돌려주고 목록에서 자동으로 제거합니다. 그때는 TTS 로 폴백하면 됩니다 — `hasCachedSpeech` 가 true 였다고 발화가 보장되지는 않습니다.
+:::
 
 ### isCachedSpeechReady()
 
@@ -464,6 +642,14 @@ klleonOndeviceSdk.setIdleTimeout(30_000L)
 
 :::info
 `play()` 호출 전후 어느 시점에든 호출 가능합니다. 호출하지 않으면 자동 대기화면 기능은 비활성화 상태입니다.
+:::
+
+:::note v0.12.1
+메시지 전송 후 서버 응답이 오지 않아도 타이머가 멈추지 않습니다. 전송 시점부터 최대 20초 동안 서버 이벤트를 기다리고(응답 watchdog), 아무 응답도 없으면 남은 시간을 무활동으로 계속 셉니다.
+
+**watchdog은 `timeoutMs` 예산 안의 앞구간이며 그 위에 더해지지 않습니다.** 전송 여부와 무관하게 `STANDBY_ENTER`까지의 총 대기는 항상 `timeoutMs`입니다. `timeoutMs`가 20초보다 짧으면 watchdog도 그만큼 줄어듭니다.
+
+v0.12.0 이하에서는 전송 시 타이머가 중지되고 서버 이벤트로만 재시작되어, 응답이 오지 않으면 해당 세션의 idle timeout이 발생하지 않았습니다.
 :::
 
 ### disableIdleTimeout()
